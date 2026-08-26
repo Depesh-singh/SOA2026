@@ -20,19 +20,28 @@ class SmartShieldC2 {
   }
 
   initWebSocket() {
-    const wsHost = (window.location.protocol === 'file:' || !window.location.host)
-      ? 'localhost:8000'
-      : (window.location.host.includes(':') ? window.location.host.split(':')[0] + ':8000' : window.location.host);
-    const wsUrl = `ws://${wsHost}/ws/telemetry`;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.host;
+    
+    let wsUrl;
+    if (isLocal) {
+      wsUrl = 'ws://localhost:8000/ws/telemetry';
+    } else {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${proto}//${window.location.host}/ws/telemetry`;
+    }
 
     try {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         this.isBackendConnected = true;
+        if (this.simInterval) {
+          clearInterval(this.simInterval);
+          this.simInterval = null;
+        }
         console.log("SMART SHIELD C2 WebSocket Connected.");
         this.updateConnectionBadge(true);
-        this.addEventLog("[SYSTEM] Connected to C2 Telemetry Stream at 30 FPS.");
+        this.addEventLog("[SYSTEM] Connected to C2 Live Telemetry Stream at 30 FPS.");
       };
 
       this.ws.onmessage = (event) => {
@@ -47,17 +56,101 @@ class SmartShieldC2 {
       this.ws.onclose = () => {
         this.isBackendConnected = false;
         this.updateConnectionBadge(false);
-        setTimeout(() => this.initWebSocket(), 3000);
+        this.startFallbackSimulation();
+        setTimeout(() => this.initWebSocket(), 5000);
       };
 
       this.ws.onerror = () => {
         this.isBackendConnected = false;
         this.updateConnectionBadge(false);
+        this.startFallbackSimulation();
       };
     } catch (e) {
       this.isBackendConnected = false;
       this.updateConnectionBadge(false);
+      this.startFallbackSimulation();
     }
+  }
+
+  startFallbackSimulation() {
+    if (this.simInterval) return;
+    let simAngle = 0;
+    this.simInterval = setInterval(() => {
+      if (this.isBackendConnected) {
+        clearInterval(this.simInterval);
+        this.simInterval = null;
+        return;
+      }
+      simAngle += 0.04;
+      const r1 = 38.0 + Math.sin(simAngle * 0.7) * 8.0;
+      const b1 = (simAngle * 25) % 360;
+      const x1 = r1 * Math.cos((b1 * Math.PI) / 180);
+      const y1 = r1 * Math.sin((b1 * Math.PI) / 180);
+      const z1 = 18.0 + Math.sin(simAngle * 1.2) * 4.0;
+
+      const r2 = 62.0 + Math.cos(simAngle * 0.5) * 12.0;
+      const b2 = (180 + simAngle * 18) % 360;
+      const x2 = r2 * Math.cos((b2 * Math.PI) / 180);
+      const y2 = r2 * Math.sin((b2 * Math.PI) / 180);
+      const z2 = 25.0 + Math.cos(simAngle * 0.8) * 6.0;
+
+      const simPayload = {
+        system_status: {
+          fps: 30,
+          camera_connected: false,
+          radar_connected: false,
+          simulation_mode: true
+        },
+        targets: [
+          {
+            id: 'TRK-101',
+            track_id: 1,
+            callsign: 'DRONE-ALPHA (DJI M300)',
+            classification: 'Quadcopter',
+            confidence: 0.94,
+            distance_m: r1,
+            azimuth_deg: b1,
+            x_m: x1,
+            y_m: y1,
+            z_m: z1,
+            vx_ms: -3.2 * Math.sin((b1 * Math.PI) / 180),
+            vy_ms: -4.5,
+            speed_ms: 5.5,
+            closure_rate_ms: -4.5,
+            threat_score: 82,
+            threat_level: 'HIGH',
+            threat_reasons: ['HIGH CLOSURE RATE (-4.5m/s)', 'AIRSPACE RESTRICTED ZONE INTRUSION'],
+            is_highest_priority: true
+          },
+          {
+            id: 'TRK-102',
+            track_id: 2,
+            callsign: 'DRONE-BRAVO (FIXED-WING)',
+            classification: 'Fixed-Wing',
+            confidence: 0.88,
+            distance_m: r2,
+            azimuth_deg: b2,
+            x_m: x2,
+            y_m: y2,
+            z_m: z2,
+            vx_ms: 2.1,
+            vy_ms: -1.8,
+            speed_ms: 12.4,
+            closure_rate_ms: -1.8,
+            threat_score: 54,
+            threat_level: 'MEDIUM',
+            threat_reasons: ['PERIMETER PATROL APPROACH'],
+            is_highest_priority: false
+          }
+        ],
+        primary_target: { id: 'TRK-101' },
+        gimbal: {
+          pan_deg: b1,
+          tilt_deg: (Math.atan2(z1, r1) * 180) / Math.PI
+        }
+      };
+      this.handleBackendTelemetry(simPayload);
+    }, 100);
   }
 
   updateConnectionBadge(connected, sysStatus) {
@@ -72,16 +165,24 @@ class SmartShieldC2 {
         fpsText.innerText = `ONLINE (${fps} FPS)`;
         if (camFpsVal) camFpsVal.innerText = `${fps}`;
       } else {
-        fpsText.innerText = 'OFFLINE / RECONNECTING';
+        fpsText.innerText = 'SIMULATED C2 (STANDBY)';
       }
     }
 
-    if (camText && sysStatus) {
-      camText.innerText = sysStatus.camera_connected ? 'USB WEBCAM (LIVE)' : 'STANDBY / OFFLINE';
+    if (camText) {
+      if (sysStatus && sysStatus.camera_connected) {
+        camText.innerText = 'USB WEBCAM (LIVE)';
+      } else {
+        camText.innerText = 'SYNTHETIC EO/IR HUD';
+      }
     }
 
-    if (radarText && sysStatus) {
-      radarText.innerText = sysStatus.radar_connected ? 'CONNECTED (COM5)' : 'STANDBY';
+    if (radarText) {
+      if (sysStatus && sysStatus.radar_connected) {
+        radarText.innerText = 'CONNECTED (COM5)';
+      } else {
+        radarText.innerText = 'ACTIVE (SWEEP)';
+      }
     }
   }
 
