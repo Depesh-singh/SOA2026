@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# SQLite databases & heavy logs (exceeds GitHub limits or local state)
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+database/smart_shield.db
+outputs/logs/events.jsonl
+*.log
+
+# Large local video uploads/test recordings
+uploads/*.mp4
+uploads/*.avi
+uploads/*.mov
+uploads/*.mkv
+uploads/*.webm
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

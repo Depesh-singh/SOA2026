@@ -1,0 +1,1029 @@
+/* ==========================================================================
+   SMART SHIELD — CLEAN AIRSPACE DEFENCE & THREAT C2 DASHBOARD
+   Modern Dark-Mode Tactical Theme
+   ========================================================================== */
+
+:root {
+  --bg-deep-space: #03060a;
+  --bg-panel: rgba(8, 14, 22, 0.94);
+  --bg-panel-dark: rgba(4, 8, 14, 0.98);
+  --bg-header: rgba(10, 18, 30, 0.98);
+
+  --neon-cyan: #00f0ff;
+  --neon-cyan-glow: rgba(0, 240, 255, 0.25);
+  --neon-red: #ff1e38;
+  --neon-red-glow: rgba(255, 30, 56, 0.4);
+  --neon-amber: #ffaa00;
+  --neon-green: #00ff66;
+  --neon-green-glow: rgba(0, 255, 102, 0.2);
+
+  --border-mil: #142844;
+  --border-active: #00f0ff;
+  --border-red: #ff1e38;
+
+  --text-main: #e2e8f0;
+  --text-dim: #7e94b0;
+  --text-muted: #3d506a;
+
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-title: 'Rajdhani', sans-serif;
+  --font-stencil: 'Orbitron', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body.cinematic-command-center {
+  background-color: var(--bg-deep-space);
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.05) 0%, transparent 60%),
+    radial-gradient(circle at 10% 40%, rgba(0, 255, 102, 0.03) 0%, transparent 50%),
+    linear-gradient(rgba(3, 6, 10, 0.98), rgba(3, 6, 10, 0.98)),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 240, 255, 0.012) 2px, rgba(0, 240, 255, 0.012) 4px);
+  color: var(--text-main);
+  font-family: var(--font-title);
+  font-size: 13px;
+  line-height: 1.35;
+  min-height: 100vh;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* ==========================================================================
+   CLEAN C2 HEADER
+   ========================================================================== */
+
+.warroom-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 18px;
+  background: var(--bg-header);
+  border-bottom: 2px solid var(--border-mil);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), inset 0 -1px 0 rgba(0, 240, 255, 0.15);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.iaf-emblem-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vayu-netra-logo-img {
+  height: 32px !important;
+  width: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 240, 255, 0.6);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+  object-fit: cover;
+  display: inline-block;
+}
+
+.brand-hi {
+  color: #00f0ff;
+  font-weight: 900;
+  font-family: 'Rajdhani', sans-serif;
+  margin-right: 2px;
+}
+
+.brand-en {
+  color: #e59344;
+  font-weight: 800;
+  font-family: 'Orbitron', sans-serif;
+}
+
+.command-motto {
+  font-family: var(--font-stencil);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--neon-cyan);
+  font-weight: 700;
+}
+
+.main-screen-title {
+  font-family: var(--font-stencil);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.badge-sector {
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--neon-cyan);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--neon-cyan);
+  vertical-align: middle;
+  font-family: var(--font-mono);
+}
+
+/* CLEAN STATUS PILLS IN HEADER */
+.clean-status-pill-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.status-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border-mil);
+  background: rgba(8, 16, 28, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pill-online {
+  border-color: rgba(0, 255, 102, 0.4);
+  color: var(--neon-green);
+}
+
+.pill-active {
+  border-color: rgba(0, 240, 255, 0.4);
+  color: var(--neon-cyan);
+}
+
+.pill-standby {
+  border-color: rgba(255, 170, 0, 0.3);
+  color: var(--neon-amber);
+}
+
+.pill-ai {
+  border-color: rgba(0, 255, 102, 0.3);
+  color: #fff;
+}
+
+.pill-dot {
+  color: var(--neon-green);
+  animation: pulseDot 1.2s infinite;
+}
+
+@keyframes pulseDot {
+  50% { opacity: 0.3; }
+}
+
+/* CLOCK ARRAY */
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.quad-clock-array {
+  display: flex;
+  gap: 8px;
+  background: rgba(4, 8, 14, 0.8);
+  border: 1px solid var(--border-mil);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.clock-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 6px;
+  border-right: 1px solid rgba(20, 40, 68, 0.6);
+}
+.clock-cell:last-child { border-right: none; }
+
+.ck-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.ck-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   MAIN MULTI-DISPLAY GRID LAYOUT (3 COLUMNS + BOTTOM TABLE)
+   ========================================================================== */
+
+.warroom-grid {
+  display: grid;
+  grid-template-columns: 460px 1fr 380px;
+  gap: 12px;
+  padding: 12px;
+}
+
+.panel-bottom-tewa {
+  grid-column: 1 / -1;
+}
+
+.c2-display-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-mil);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+
+.c2-display-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 10px; height: 10px;
+  border-top: 2px solid var(--neon-cyan);
+  border-left: 2px solid var(--neon-cyan);
+  pointer-events: none;
+}
+.c2-display-panel::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: 0; width: 10px; height: 10px;
+  border-bottom: 2px solid var(--neon-cyan);
+  border-right: 2px solid var(--neon-cyan);
+  pointer-events: none;
+}
+
+.display-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 12px;
+  background: rgba(12, 20, 32, 0.95);
+  border-bottom: 1px solid var(--border-mil);
+}
+
+.panel-tag-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-tag-group h2 {
+  font-family: var(--font-stencil);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.panel-icon {
+  color: var(--neon-cyan);
+  font-size: 13px;
+}
+
+.panel-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.pill-mil {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  background: rgba(20, 40, 68, 0.5);
+  border: 1px solid var(--border-mil);
+  padding: 2px 6px;
+  border-radius: 2px;
+  color: var(--text-dim);
+}
+
+.pill-pulse {
+  background: rgba(0, 255, 102, 0.15);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  animation: radarPillPulse 1.2s infinite;
+}
+
+@keyframes radarPillPulse {
+  50% { opacity: 0.4; }
+}
+
+/* ==========================================================================
+   PANEL 1: RADAR SCOPE
+   ========================================================================== */
+
+.radar-scope-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  background: radial-gradient(circle, #04120a 0%, #03070d 100%);
+}
+
+#radarCanvas {
+  border-radius: 50%;
+  border: 2px solid rgba(0, 255, 102, 0.35);
+  box-shadow: 0 0 25px rgba(0, 255, 102, 0.12), inset 0 0 25px rgba(0, 255, 102, 0.06);
+}
+
+.radar-hud-markings {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+
+.bearing-mark {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--neon-green);
+  font-weight: 700;
+}
+.mark-n { top: 12px; left: 50%; transform: translateX(-50%); }
+.mark-s { bottom: 12px; left: 50%; transform: translateX(-50%); }
+.mark-e { right: 14px; top: 50%; transform: translateY(-50%); }
+.mark-w { left: 14px; top: 50%; transform: translateY(-50%); }
+
+.sam-legend-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border-mil);
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.dot-sam-akash {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neon-amber);
+}
+.dot-sam-dew {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--neon-red);
+}
+
+.bigboard-telemetry-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 6px 8px;
+  background: rgba(6, 12, 20, 0.95);
+  border-top: 1px solid var(--border-mil);
+  text-align: center;
+}
+
+.strip-cell .sc-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  color: var(--text-dim);
+}
+
+.strip-cell .sc-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.text-cyan { color: var(--neon-cyan); }
+.text-red { color: var(--neon-red); }
+.text-green { color: var(--neon-green); }
+.text-amber { color: var(--neon-amber); }
+
+/* ==========================================================================
+   PANEL 2: OPTICAL VIDEO FEED
+   ========================================================================== */
+
+.vision-mode-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-vision-mode {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--border-mil);
+  background: rgba(14, 24, 40, 0.8);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-vision-mode.active {
+  background: var(--neon-cyan);
+  color: #000;
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px var(--neon-cyan-glow);
+}
+
+.optical-feed-container {
+  position: relative;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 420px;
+  overflow: hidden;
+}
+
+#opticalCanvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.flir-cinematic-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+
+.flir-top-bar {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  display: flex;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--neon-cyan);
+}
+
+.flir-zoom-controls {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--border-mil);
+  padding: 2px 6px;
+  pointer-events: auto;
+}
+
+.zoom-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.btn-zoom {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  padding: 2px 5px;
+  background: rgba(14, 24, 40, 0.9);
+  border: 1px solid var(--border-mil);
+  color: var(--text-main);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.btn-zoom.active {
+  background: var(--neon-amber);
+  color: #000;
+  border-color: var(--neon-amber);
+}
+
+.laser-designator-box {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  background: rgba(8, 16, 28, 0.85);
+  border: 1px solid var(--border-mil);
+  padding: 5px 10px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+.designator-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  letter-spacing: 0.5px;
+}
+
+.designator-desc {
+  font-size: 9.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.clean-action-bar {
+  padding: 6px 10px;
+  background: rgba(6, 12, 20, 0.95);
+  border-top: 1px solid var(--border-mil);
+}
+
+.directive-strip {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+/* ==========================================================================
+   PANEL 3: THREAT MATRIX & SENSOR FUSION ANALYTICS
+   ========================================================================== */
+
+.threat-panel-content {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.threat-score-card {
+  background: rgba(6, 12, 20, 0.9);
+  border: 1px solid var(--border-mil);
+  padding: 10px;
+  border-radius: 3px;
+}
+
+.threat-gauge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.threat-level-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.level-nominal { background: rgba(0, 255, 102, 0.2); color: var(--neon-green); border: 1px solid var(--neon-green); }
+.level-elevated { background: rgba(255, 170, 0, 0.2); color: var(--neon-amber); border: 1px solid var(--neon-amber); }
+.level-critical { background: rgba(255, 30, 56, 0.25); color: var(--neon-red); border: 1px solid var(--neon-red); }
+
+.threat-score-number {
+  font-family: var(--font-stencil);
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+  margin: 4px 0;
+}
+
+.score-max {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.threat-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(20, 40, 68, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.threat-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-green), var(--neon-amber), var(--neon-red));
+  transition: width 0.3s ease;
+}
+
+/* RISK FACTOR BREAKDOWN */
+.risk-breakdown-box, .fusion-metrics-box, .clean-event-log-box {
+  background: rgba(6, 12, 20, 0.9);
+  border: 1px solid var(--border-mil);
+  padding: 8px 10px;
+  border-radius: 3px;
+}
+
+.breakdown-title {
+  font-family: var(--font-stencil);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.factor-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 35px;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.factor-bar-wrap {
+  height: 4px;
+  background: rgba(20, 40, 68, 0.5);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.factor-bar-fill {
+  height: 100%;
+  background: var(--neon-cyan);
+  transition: width 0.3s ease;
+}
+
+.factor-val {
+  text-align: right;
+  color: #fff;
+}
+
+/* FUSION METRICS GRID */
+.fusion-metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.f-metric-cell {
+  background: rgba(4, 8, 14, 0.8);
+  border: 1px solid rgba(20, 40, 68, 0.6);
+  padding: 4px 6px;
+  border-radius: 2px;
+}
+
+.f-metric-cell .f-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  color: var(--text-dim);
+}
+
+.f-metric-cell .f-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* EVENT LOG */
+.event-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 80px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.log-item {
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.btn-export-csv {
+  font-family: var(--font-title);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-export-csv:hover {
+  background: var(--neon-cyan);
+  color: #000;
+}
+
+/* ==========================================================================
+   PANEL 4: TEWA MASTER AIR TRACK MATRIX TABLE
+   ========================================================================== */
+
+.tewa-table-wrap {
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.tewa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.tewa-table th {
+  background: rgba(12, 20, 32, 0.95);
+  color: var(--neon-cyan);
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--border-mil);
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+}
+
+.tewa-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(20, 40, 68, 0.4);
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.tewa-table tr:hover {
+  background: rgba(0, 240, 255, 0.06);
+}
+
+.row-hostile-priority {
+  background: rgba(255, 30, 56, 0.15);
+  border-left: 3px solid var(--neon-red);
+}
+
+.tewa-badge {
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 9.5px;
+  display: inline-block;
+}
+
+.tewa-critical { background: rgba(255, 30, 56, 0.3); color: var(--neon-red); border: 1px solid var(--neon-red); }
+.tewa-elevated { background: rgba(255, 170, 0, 0.3); color: var(--neon-amber); border: 1px solid var(--neon-amber); }
+.tewa-nominal { background: rgba(0, 255, 102, 0.3); color: var(--neon-green); border: 1px solid var(--neon-green); }
+
+/* VIDEO SOURCE CONTROLS */
+.video-source-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-source-ctrl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-upload-act {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.btn-upload-act:hover {
+  background: var(--neon-cyan);
+  color: #000;
+  box-shadow: 0 0 10px var(--neon-cyan-glow);
+}
+
+.btn-usb-act {
+  background: rgba(0, 255, 102, 0.15);
+  border: 1px solid var(--neon-green);
+  color: var(--neon-green);
+}
+
+.btn-usb-act:hover {
+  background: var(--neon-green);
+  color: #000;
+  box-shadow: 0 0 10px var(--neon-green-glow);
+}
+
+.upload-status-bar {
+  padding: 6px 12px;
+  background: rgba(0, 240, 255, 0.1);
+  border-bottom: 1px solid var(--neon-cyan);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--neon-cyan);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* RF JAMMING CONTROL PANEL AT BOTTOM OF CAMERA VIEW */
+.rf-jamming-control-panel {
+  padding: 8px 12px;
+  background: rgba(6, 14, 24, 0.95);
+  border-top: 1px solid var(--border-mil);
+  margin-top: 6px;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rf-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.rf-panel-title {
+  font-family: var(--font-stencil);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--neon-cyan);
+  letter-spacing: 0.8px;
+}
+
+.rf-status-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.tag-secure { background: rgba(0, 255, 102, 0.15); color: var(--neon-green); border: 1px solid var(--neon-green); }
+.tag-critical { background: rgba(255, 30, 56, 0.25); color: var(--neon-red); border: 1px solid var(--neon-red); }
+.tag-active { background: rgba(0, 240, 255, 0.2); color: var(--neon-cyan); border: 1px solid var(--neon-cyan); }
+
+.rf-action-btn-group {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 1.2fr;
+  gap: 8px;
+}
+
+.btn-rf-action {
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.btn-softkill {
+  background: rgba(0, 240, 255, 0.18);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+.btn-softkill:hover {
+  background: var(--neon-cyan);
+  color: #000;
+  box-shadow: 0 0 12px var(--neon-cyan);
+}
+
+.btn-jam-sim {
+  background: rgba(255, 170, 0, 0.15);
+  border: 1px solid var(--neon-amber);
+  color: var(--neon-amber);
+}
+.btn-jam-sim:hover {
+  background: var(--neon-amber);
+  color: #000;
+  box-shadow: 0 0 12px var(--neon-amber);
+}
+
+.btn-eccm-hop {
+  background: rgba(0, 255, 102, 0.15);
+  border: 1px solid var(--neon-green);
+  color: var(--neon-green);
+}
+.btn-eccm-hop:hover {
+  background: var(--neon-green);
+  color: #000;
+  box-shadow: 0 0 12px var(--neon-green);
+}
+
+/* TRAJECTORY PREDICTION VISUALIZATION */
+.trajectory-viz-box {
+  padding: 8px;
+  background: rgba(6, 14, 24, 0.95);
+  border: 1px solid var(--border-mil);
+  border-radius: 4px;
+}
+
+.traj-view-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.traj-tab {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid var(--border-mil);
+  color: var(--text-dim);
+  transition: all 0.15s ease;
+}
+
+.traj-tab:hover {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.traj-tab.active {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.traj-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background: rgba(4, 10, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.traj-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.traj-legend {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.leg-actual { background: #e59344; }
+.leg-predicted { background: #4a9eff; }
+.leg-flight { background: rgba(120, 160, 180, 0.7); }
+
+.traj-stats-row {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0 0 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.traj-stat strong {
+  color: var(--neon-cyan);
+}
+
+/* Compact Event Log */
+.compact-log {
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.compact-log .event-log-list {
+  max-height: 60px;
+  overflow-y: auto;
+}

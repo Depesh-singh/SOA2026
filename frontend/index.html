@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VayuNetra (वायुNetra) | AI Drone Detection &amp; Airspace Defence C2</title>
+  <link rel="stylesheet" href="styles.css?v=3.2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="cinematic-command-center">
+
+  <!-- =========================================================================
+       CLEAN STRATEGIC C2 HEADER
+       ========================================================================= -->
+  <header class="warroom-header">
+    <div class="header-left">
+      <div class="iaf-emblem-wrap">
+        <img src="vayu_netra_logo.jpg" alt="VayuNetra Logo" width="32" height="32" class="vayu-netra-logo-img" style="width:32px !important; height:32px !important; max-width:32px !important; max-height:32px !important; border-radius:50%; object-fit:cover; flex-shrink:0; border:1.5px solid #00f0ff; box-shadow:0 0 8px rgba(0,240,255,0.4); display:inline-block;">
+        <div class="title-group">
+          <div class="command-motto">INDIAN AIR FORCE • STRATEGIC AIRSPACE DEFENCE</div>
+          <h1 class="main-screen-title"><span class="brand-hi">वायु</span><span class="brand-en">Netra</span> <span class="badge-sector">v3.0 AI-C2</span></h1>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: SYSTEM STATUS PILLS -->
+    <div class="header-center">
+      <div class="clean-status-pill-group">
+        <div class="status-pill pill-online" id="status-pill-c2">
+          <span class="pill-dot">●</span> BACKEND C2: <strong id="c2-fps-text">ONLINE (30 FPS)</strong>
+        </div>
+        <div class="status-pill pill-active" id="status-pill-cam">
+          📷 CAMERA: <strong id="cam-status-text">USB WEBCAM (LIVE)</strong>
+        </div>
+        <div class="status-pill pill-standby" id="status-pill-radar">
+          📡 RADAR: <strong id="radar-status-text">STANDBY</strong>
+        </div>
+        <div class="status-pill pill-ai">
+          🧠 AI: <strong class="text-green">YOLO + BYTETRACK</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: MISSION CLOCKS -->
+    <div class="header-right">
+      <div class="quad-clock-array">
+        <div class="clock-cell">
+          <span class="ck-label">ZULU (UTC)</span>
+          <span id="clock-zulu" class="ck-val">07:15:32 Z</span>
+        </div>
+        <div class="clock-cell">
+          <span class="ck-label">LOCAL (IST)</span>
+          <span id="clock-ist" class="ck-val text-cyan">12:45:32 IST</span>
+        </div>
+        <div class="clock-cell">
+          <span class="ck-label">MISSION TIME</span>
+          <span id="clock-met" class="ck-val text-green">+01:42:19</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       MAIN 3-COLUMN TACTICAL GRID + BOTTOM TARGET MATRIX
+       ========================================================================= -->
+  <main class="warroom-grid">
+
+    <!-- PANEL 1 (LEFT): TACTICAL AIRSPACE RADAR SCOPE -->
+    <section class="c2-display-panel panel-big-board">
+      <div class="display-panel-header">
+        <div class="panel-tag-group">
+          <span class="panel-icon">🌐</span>
+          <h2>TACTICAL AIRSPACE RADAR SCOPE</h2>
+        </div>
+        <div class="panel-pills">
+          <span class="pill-mil pill-pulse">● 30 RPM SWEEP</span>
+          <span class="pill-mil">200m ENVELOPE</span>
+        </div>
+      </div>
+
+      <div class="radar-scope-container">
+        <canvas id="radarCanvas" width="480" height="480"></canvas>
+        <div class="radar-hud-markings">
+          <div class="bearing-mark mark-n">000° (N)</div>
+          <div class="bearing-mark mark-e">090° (E)</div>
+          <div class="bearing-mark mark-s">180° (S)</div>
+          <div class="bearing-mark mark-w">270° (W)</div>
+          <div class="sam-legend-badge">
+            <span class="dot-sam-akash"></span> WARNING ZONE (120m) &nbsp;|&nbsp;
+            <span class="dot-sam-dew"></span> CRITICAL ZONE (50m)
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Track Vector Telemetry -->
+      <div class="bigboard-telemetry-strip">
+        <div class="strip-cell">
+          <span class="sc-label">ACTIVE CONTACTS</span>
+          <span class="sc-val text-cyan" id="track-count-val">00</span>
+        </div>
+        <div class="strip-cell">
+          <span class="sc-label">PRIMARY RANGE</span>
+          <span class="sc-val text-red" id="closest-range-val">--- m</span>
+        </div>
+        <div class="strip-cell">
+          <span class="sc-label">CLOSURE VELOCITY</span>
+          <span class="sc-val text-amber" id="max-closure-val">--- m/s</span>
+        </div>
+        <div class="strip-cell">
+          <span class="sc-label">TIME TO IMPACT</span>
+          <span class="sc-val text-red" id="tti-val">--- SEC</span>
+        </div>
+        <div class="strip-cell">
+          <span class="sc-label">DEFENCE THREAT</span>
+          <span class="sc-val text-green" id="air-threat-level">NOMINAL</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL 2 (CENTER): LIVE OPTICAL RECONNAISSANCE FEED -->
+    <section class="c2-display-panel panel-eoir-pod">
+      <div class="display-panel-header">
+        <div class="panel-tag-group">
+          <span class="panel-icon">⌖</span>
+          <h2>LIVE OPTICAL &amp; RECONNAISSANCE FEED</h2>
+        </div>
+        <!-- Clean Vision Mode Switcher -->
+        <div class="vision-mode-bar">
+          <button class="btn-vision-mode active" id="mode-live-stream" onclick="setVisionMode('LIVE_STREAM')">🔴 LIVE AI STREAM</button>
+          <button class="btn-vision-mode" id="mode-flir-white" onclick="setVisionMode('WHITE_HOT')">FLIR WHITE-HOT</button>
+          <button class="btn-vision-mode" id="mode-nvg" onclick="setVisionMode('NVG_GREEN')">NVG GREEN</button>
+          <button class="btn-vision-mode" id="mode-optical" onclick="setVisionMode('DAY_OPTICAL')">DAY OPTICAL</button>
+        </div>
+      </div>
+
+      <div class="optical-feed-container">
+        <!-- Live AI MJPEG Feed (From USB Camera + YOLO Inference) -->
+        <img id="mjpegVideoFeed" src="/api/video_feed" alt="SMART-SHIELD Live AI HUD Feed" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1;" onerror="this.style.display='none';" onload="this.style.display='block';">
+        <canvas id="opticalCanvas" width="660" height="420" style="position: relative; z-index: 0;"></canvas>
+        
+        <!-- Clean HUD Overlay -->
+        <div class="flir-cinematic-overlay">
+          <!-- Top Telemetry Row -->
+          <div class="flir-top-bar">
+            <span>AZ: <strong id="fcr-az-val">000.0°</strong></span>
+            <span>EL: <strong id="fcr-el-val">+00.0°</strong></span>
+            <span>RANGE: <strong class="text-green" id="lrf-status">---</strong></span>
+            <span>FOV: <strong id="zoom-text">4.0X OPTICAL</strong></span>
+            <span>FPS: <strong class="text-cyan" id="cam-fps-val">30.0</strong></span>
+          </div>
+
+          <!-- Digital Zoom Controls -->
+          <div class="flir-zoom-controls">
+            <span class="zoom-label">MAG:</span>
+            <button class="btn-zoom" onclick="setZoomLevel(1)">1X</button>
+            <button class="btn-zoom active" onclick="setZoomLevel(4)">4X</button>
+            <button class="btn-zoom" onclick="setZoomLevel(8)">8X</button>
+          </div>
+
+          <!-- Target Lock Status -->
+          <div class="laser-designator-box">
+            <div class="designator-title" id="designation-title">⚡ TARGET STATUS: SCANNING AIRSPACE</div>
+            <div class="designator-desc" id="designation-text">
+              NO ACTIVE HOSTILE IN PERIMETER • CONTINUOUS SENSOR MONITORING ACTIVE
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Bar & RF Jamming Control Panel -->
+      <div class="clean-action-bar">
+        <div class="directive-strip">
+          <span>OPERATIONAL DIRECTIVE:</span>
+          <strong class="text-green" id="directive-text">DEFENSIVE MONITORING ACTIVE — ALL PERIMETER SECTORS SECURE</strong>
+        </div>
+
+        <!-- Dedicated RF Jamming Control Options -->
+        <div class="rf-jamming-control-panel">
+          <div class="rf-panel-header">
+            <span class="rf-panel-title">⚡ ELECTRONIC WARFARE &amp; RF JAMMING COUNTERMEASURES</span>
+            <span class="rf-status-badge tag-secure" id="rf-control-status-badge">RF LINK SECURE (CH-6)</span>
+          </div>
+          <div class="rf-action-btn-group">
+            <button class="btn-rf-action btn-softkill" onclick="executeSoftKill()">
+              ⚡ ENGAGE RF JAMMING (SOFT-KILL BEAM)
+            </button>
+            <button class="btn-rf-action btn-jam-sim" id="btn-jam-sim-cam" onclick="toggleHostileJamming()">
+              ⚠️ SIMULATE HOSTILE JAMMING
+            </button>
+            <button class="btn-rf-action btn-eccm-hop" id="btn-eccm-hop-cam" onclick="executeEccmFrequencyHop()">
+              🔄 ENGAGE ECCM FREQUENCY HOPPING
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL 3 (RIGHT): THREAT MATRIX & SENSOR FUSION -->
+    <section class="c2-display-panel panel-threat-analytics">
+      <div class="display-panel-header">
+        <div class="panel-tag-group">
+          <span class="panel-icon">📊</span>
+          <h2>THREAT MATRIX &amp; SENSOR FUSION</h2>
+        </div>
+        <button class="btn-export-csv" onclick="exportMissionReportCsv()">📊 EXPORT CSV</button>
+      </div>
+
+      <div class="threat-panel-content">
+        <!-- Threat Gauge Card -->
+        <div class="threat-score-card">
+          <div class="threat-gauge-header">
+            <span>AGGREGATE RISK INDEX</span>
+            <span class="threat-level-badge level-nominal" id="main-threat-badge">NOMINAL</span>
+          </div>
+          <div class="threat-score-number" id="main-threat-score-val">00<span class="score-max">/100</span></div>
+          <div class="threat-progress-track">
+            <div class="threat-progress-bar" id="main-threat-progress-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Risk Factor Breakdown -->
+        <div class="risk-breakdown-box">
+          <div class="breakdown-title">THREAT SCORING FACTORS</div>
+          <div class="factor-row">
+            <span>PROXIMITY (30%)</span>
+            <div class="factor-bar-wrap"><div class="factor-bar-fill" id="factor-prox" style="width: 0%;"></div></div>
+            <span class="factor-val" id="factor-prox-val">0%</span>
+          </div>
+          <div class="factor-row">
+            <span>SPEED / CLOSURE (25%)</span>
+            <div class="factor-bar-wrap"><div class="factor-bar-fill" id="factor-spd" style="width: 0%;"></div></div>
+            <span class="factor-val" id="factor-spd-val">0%</span>
+          </div>
+          <div class="factor-row">
+            <span>HEADING VECTOR (20%)</span>
+            <div class="factor-bar-wrap"><div class="factor-bar-fill" id="factor-hdg" style="width: 0%;"></div></div>
+            <span class="factor-val" id="factor-hdg-val">0%</span>
+          </div>
+          <div class="factor-row">
+            <span>AI CONFIDENCE (15%)</span>
+            <div class="factor-bar-wrap"><div class="factor-bar-fill" id="factor-conf" style="width: 0%;"></div></div>
+            <span class="factor-val" id="factor-conf-val">0%</span>
+          </div>
+        </div>
+
+        <!-- Sensor Fusion Metrics -->
+        <div class="fusion-metrics-box">
+          <div class="breakdown-title">SENSOR FUSION METRICS</div>
+          <div class="fusion-metric-grid">
+            <div class="f-metric-cell">
+              <span class="f-label">CAMERA SPEED</span>
+              <span class="f-val text-cyan" id="metric-cam-spd">0.0 m/s</span>
+            </div>
+            <div class="f-metric-cell">
+              <span class="f-label">RADAR DOPPLER</span>
+              <span class="f-val text-amber" id="metric-rad-spd">--- m/s</span>
+            </div>
+            <div class="f-metric-cell">
+              <span class="f-label">FUSED VELOCITY</span>
+              <span class="f-val text-green" id="metric-fused-spd">0.0 m/s</span>
+            </div>
+            <div class="f-metric-cell">
+              <span class="f-label">KALMAN STATE</span>
+              <span class="f-val text-cyan" id="metric-kalman-state">LOCKED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TRAJECTORY PREDICTION VISUALIZATION -->
+        <div class="trajectory-viz-box">
+          <div class="breakdown-title">TRAJECTORY PREDICTION (AI KALMAN + CONSTANT-VELOCITY)</div>
+          <div class="traj-view-tabs">
+            <button class="traj-tab active" id="tab-3d" onclick="window.trajViz && window.trajViz.setView('3d')">3D VIEW</button>
+            <button class="traj-tab" id="tab-lateral" onclick="window.trajViz && window.trajViz.setView('lateral')">LATERAL (X-Z)</button>
+            <button class="traj-tab" id="tab-vertical" onclick="window.trajViz && window.trajViz.setView('vertical')">VERTICAL (Y-Z)</button>
+          </div>
+          <div class="traj-canvas-wrap">
+            <canvas id="trajectoryCanvas" width="480" height="260"></canvas>
+            <div class="traj-legend">
+              <span class="legend-item"><span class="legend-dot leg-actual"></span> Actual Positions</span>
+              <span class="legend-item"><span class="legend-dot leg-predicted"></span> Predicted Trajectory</span>
+              <span class="legend-item"><span class="legend-dot leg-flight"></span> Flight Path</span>
+            </div>
+          </div>
+          <div class="traj-stats-row">
+            <span class="traj-stat" id="traj-stat-points">POINTS: <strong>0</strong></span>
+            <span class="traj-stat" id="traj-stat-horizon">HORIZON: <strong>3.0s</strong></span>
+            <span class="traj-stat" id="traj-stat-error">PRED ERR: <strong>--</strong></span>
+          </div>
+        </div>
+
+        <!-- Compact Defence Event Log -->
+        <div class="clean-event-log-box compact-log">
+          <div class="breakdown-title">DEFENCE EVENT LOG</div>
+          <div class="event-log-list" id="event-log-container">
+            <div class="log-item log-info">[SYSTEM] VayuNetra v3.0 initialized &amp; monitoring.</div>
+            <div class="log-item log-info">[CAMERA] USB Webcam connected at 30 FPS.</div>
+            <div class="log-item log-info">[AI] YOLO model loaded &amp; ByteTrack active.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PANEL 4 (BOTTOM): TEWA MASTER AIR TRACK MATRIX & VIDEO INGESTION -->
+    <section class="c2-display-panel panel-bottom-tewa">
+      <div class="display-panel-header">
+        <div class="panel-tag-group">
+          <span class="panel-icon">📋</span>
+          <h2>TEWA (THREAT EVALUATION &amp; TARGET ASSIGNMENT) MASTER AIR PICTURE</h2>
+        </div>
+
+        <!-- VIDEO INGESTION & SOURCE SWITCH CONTROLS -->
+        <div class="video-source-controls">
+          <input type="file" id="videoFileInput" accept="video/mp4,video/avi,video/mov,video/mkv,video/webm" style="display: none;" onchange="handleVideoUpload(event)">
+          <button class="btn-source-ctrl btn-upload-act" id="btn-upload-video" onclick="document.getElementById('videoFileInput').click()">
+            📁 UPLOAD DRONE VIDEO
+          </button>
+          <button class="btn-source-ctrl btn-usb-act" id="btn-switch-usb" onclick="switchVideoSource('usb')">
+            📷 LIVE USB WEBCAM
+          </button>
+          <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB WEBCAM</span>
+        </div>
+      </div>
+
+      <div id="video-upload-status-bar" class="upload-status-bar" style="display: none;">
+        <span id="upload-status-text">Uploading drone video...</span>
+      </div>
+
+      <div class="tewa-table-wrap">
+        <table class="tewa-table">
+          <thead>
+            <tr>
+              <th>TRACK ID</th>
+              <th>CLASSIFICATION</th>
+              <th>CONFIDENCE</th>
+              <th>DISTANCE (RNG)</th>
+              <th>BEARING (BRG)</th>
+              <th>ALTITUDE</th>
+              <th>SPEED</th>
+              <th>CLOSURE RATE</th>
+              <th>TIME TO IMPACT (TTI)</th>
+              <th>THREAT SCORE</th>
+              <th>THREAT LEVEL</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="tewa-table-body">
+            <tr>
+              <td colspan="12" style="text-align: center; color: var(--text-dim); padding: 16px;">
+                NO AIRBORNE TARGETS DETECTED IN PERIMETER • SYSTEM SCANNING
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JAVASCRIPT MODULES -->
+  <script src="js/radar_scope.js?v=3.2"></script>
+  <script src="js/optical_hud.js?v=3.2"></script>
+  <script src="js/trajectory_viz.js?v=3.2"></script>
+  <script src="app.js?v=3.2"></script>
+</body>
+</html>
