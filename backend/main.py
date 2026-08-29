@@ -239,9 +239,9 @@ class TrackSpeedEstimator:
 
 class CameraStreamManager:
     """Threaded camera and video grabber to maintain smooth frame ingestion without blocking."""
-    def __init__(self, source: Union[int, str] = 1):
+    def __init__(self, source: Union[int, str] = 0):
         self.source = int(source) if str(source).isdigit() else str(source)
-        self.source_name = f"USB Camera (Index {self.source})" if isinstance(self.source, int) else os.path.basename(str(self.source))
+        self.source_name = f"Webcam (Index {self.source})" if isinstance(self.source, int) else os.path.basename(str(self.source))
         self.is_video_file = isinstance(self.source, str) and os.path.isfile(str(self.source))
         self.cap: Optional[cv2.VideoCapture] = None
         self.current_frame: Optional[np.ndarray] = None
@@ -258,7 +258,7 @@ class CameraStreamManager:
             if source_name:
                 self.source_name = source_name
             else:
-                self.source_name = f"USB Camera (Index {self.source})" if isinstance(self.source, int) else os.path.basename(str(self.source))
+                self.source_name = f"Webcam (Index {self.source})" if isinstance(self.source, int) else os.path.basename(str(self.source))
             if self.cap:
                 try:
                     self.cap.release()
@@ -288,15 +288,20 @@ class CameraStreamManager:
                         logger.info(f"[VIDEO] Opening video file: {curr_src}")
                         self.cap = cv2.VideoCapture(curr_src)
                     elif isinstance(curr_src, int):
-                        logger.info(f"[CAMERA] Connecting to USB Camera (Index {curr_src} via DirectShow)...")
+                        # Windows DirectShow for primary webcam
                         self.cap = cv2.VideoCapture(curr_src, cv2.CAP_DSHOW)
+                        if not self.cap.isOpened():
+                            self.cap = cv2.VideoCapture(curr_src)
+                        if not self.cap.isOpened() and curr_src != 0:
+                            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
                     else:
                         self.cap = cv2.VideoCapture(curr_src)
 
                     if self.cap.isOpened():
                         if not curr_is_file:
-                            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.ai.camera_width)
-                            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.ai.camera_height)
+                            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                         src_fps = self.cap.get(cv2.CAP_PROP_FPS)
                         if src_fps and src_fps > 1.0:
                             self.fps = src_fps
@@ -304,7 +309,7 @@ class CameraStreamManager:
                         logger.info(f"[CAPTURE] Source {curr_name} opened successfully (FPS: {self.fps}).")
                     else:
                         self.connected = False
-                        time.sleep(1.0)
+                        time.sleep(2.0)
                         continue
 
                 ret, frame = self.cap.read()
@@ -1055,12 +1060,12 @@ async def upload_drone_video(file: UploadFile = File(...)):
 async def switch_video_source(req: Dict[str, Any]):
     """Switches active video source between USB Webcam and uploaded video."""
     src = req.get("source", "usb")
-    if src in ("usb", "1"):
-        cam_stream.set_source(1, source_name="USB Camera (Index 1)")
-        return {"status": "SUCCESS", "source_type": "USB_CAMERA", "source_name": "USB Camera (Index 1)"}
-    elif src in ("internal", "0"):
-        cam_stream.set_source(0, source_name="Internal Webcam (Index 0)")
-        return {"status": "SUCCESS", "source_type": "INTERNAL_CAMERA", "source_name": "Internal Webcam (Index 0)"}
+    if src in ("usb", "webcam", "0", "internal"):
+        cam_stream.set_source(0, source_name="Webcam (Index 0)")
+        return {"status": "SUCCESS", "source_type": "USB_CAMERA", "source_name": "Webcam (Index 0)"}
+    elif src in ("external", "1"):
+        cam_stream.set_source(1, source_name="External Camera (Index 1)")
+        return {"status": "SUCCESS", "source_type": "EXTERNAL_CAMERA", "source_name": "External Camera (Index 1)"}
     elif os.path.isfile(str(src)):
         cam_stream.set_source(str(src), source_name=f"Video: {os.path.basename(str(src))}")
         return {"status": "SUCCESS", "source_type": "VIDEO_FILE", "source_name": os.path.basename(str(src))}

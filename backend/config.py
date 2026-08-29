@@ -15,9 +15,9 @@ class AIEngineConfig(BaseModel):
         "SMART_SHIELD_MODEL",
         str(BASE_DIR / "smart_shield_ai" / "models" / "best.pt")
     )
-    camera_source: str = os.getenv("SMART_SHIELD_CAMERA", "1")
-    camera_width: int = 1280
-    camera_height: int = 720
+    camera_source: str = os.getenv("SMART_SHIELD_CAMERA", "0")
+    camera_width: int = 640
+    camera_height: int = 480
     camera_fps: int = 30
     meters_per_pixel: Optional[float] = None
     yolo_confidence: float = 0.20

@@ -596,7 +596,7 @@ window.switchVideoSource = async function(sourceType) {
     if (data.status === 'SUCCESS') {
       if (statusBar && statusText) {
         statusBar.style.display = 'flex';
-        statusText.innerHTML = `📷 <strong>Active Input:</strong> Switched to Live USB Webcam (Index 1).`;
+        statusText.innerHTML = `📷 <strong>Active Input:</strong> Switched to Live Webcam (Index 0).`;
         setTimeout(() => { statusBar.style.display = 'none'; }, 4000);
       }
       if (badge) {
