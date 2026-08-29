@@ -270,24 +270,28 @@
 
         <!-- TRAJECTORY PREDICTION VISUALIZATION -->
         <div class="trajectory-viz-box">
-          <div class="breakdown-title">TRAJECTORY PREDICTION (AI KALMAN + CONSTANT-VELOCITY)</div>
+          <div class="breakdown-title">TRAJECTORY PREDICTION (AI KALMAN + CONSTANT-VELOCITY 3s FORECAST)</div>
           <div class="traj-view-tabs">
-            <button class="traj-tab active" id="tab-3d" onclick="window.trajViz && window.trajViz.setView('3d')">3D VIEW</button>
+            <button class="traj-tab active" id="tab-3d" onclick="window.trajViz && window.trajViz.setView('3d')">3D ISOMETRIC</button>
             <button class="traj-tab" id="tab-lateral" onclick="window.trajViz && window.trajViz.setView('lateral')">LATERAL (X-Z)</button>
             <button class="traj-tab" id="tab-vertical" onclick="window.trajViz && window.trajViz.setView('vertical')">VERTICAL (Y-Z)</button>
           </div>
           <div class="traj-canvas-wrap">
             <canvas id="trajectoryCanvas" width="480" height="260"></canvas>
             <div class="traj-legend">
-              <span class="legend-item"><span class="legend-dot leg-actual"></span> Actual Positions</span>
-              <span class="legend-item"><span class="legend-dot leg-predicted"></span> Predicted Trajectory</span>
-              <span class="legend-item"><span class="legend-dot leg-flight"></span> Flight Path</span>
+              <span class="legend-item"><span class="legend-dot leg-actual"></span> Historical Track (Solid)</span>
+              <span class="legend-item"><span class="legend-dot leg-predicted"></span> Predicted Path (0–3s)</span>
+              <span class="legend-item"><span class="legend-dot leg-endpoint"></span> +3.0s Projected Endpoint</span>
+              <span class="legend-item"><span class="legend-dot leg-perimeter"></span> 50m Defence Perimeter</span>
             </div>
           </div>
-          <div class="traj-stats-row">
-            <span class="traj-stat" id="traj-stat-points">POINTS: <strong>0</strong></span>
-            <span class="traj-stat" id="traj-stat-horizon">HORIZON: <strong>3.0s</strong></span>
-            <span class="traj-stat" id="traj-stat-error">PRED ERR: <strong>--</strong></span>
+          <div class="traj-stats-grid">
+            <span class="traj-stat" id="traj-stat-points">TARGETS: <strong>0</strong></span>
+            <span class="traj-stat" id="traj-stat-horizon">HORIZON: <strong>3.0s (CV-EKF)</strong></span>
+            <span class="traj-stat" id="traj-stat-speed">SPD: <strong>-- m/s</strong></span>
+            <span class="traj-stat" id="traj-stat-confidence">CONF: <strong>--%</strong></span>
+            <span class="traj-stat traj-stat-wide" id="traj-stat-pred3s">+3s: <strong>AWAITING TRACK</strong></span>
+            <span class="traj-stat traj-stat-wide" id="traj-stat-zone">PERIMETER: <strong style="color:#00ff66;">SECURE</strong></span>
           </div>
         </div>
 
@@ -361,9 +365,9 @@
   </main>
 
   <!-- JAVASCRIPT MODULES -->
-  <script src="js/radar_scope.js?v=3.2"></script>
-  <script src="js/optical_hud.js?v=3.2"></script>
-  <script src="js/trajectory_viz.js?v=3.2"></script>
-  <script src="app.js?v=3.2"></script>
+  <script src="js/radar_scope.js?v=3.3"></script>
+  <script src="js/optical_hud.js?v=3.3"></script>
+  <script src="js/trajectory_viz.js?v=3.3"></script>
+  <script src="app.js?v=3.3"></script>
 </body>
 </html>

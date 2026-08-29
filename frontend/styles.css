@@ -1000,17 +1000,32 @@ body.cinematic-command-center {
   display: inline-block;
 }
 
-.leg-actual { background: #e59344; }
-.leg-predicted { background: #4a9eff; }
-.leg-flight { background: rgba(120, 160, 180, 0.7); }
+.leg-actual { background: #ff8833; box-shadow: 0 0 6px rgba(255, 136, 51, 0.6); }
+.leg-predicted { background: #00f0ff; box-shadow: 0 0 6px rgba(0, 240, 255, 0.6); }
+.leg-endpoint { 
+  background: #00f0ff; 
+  transform: rotate(45deg);
+  border-radius: 1px;
+  box-shadow: 0 0 8px #00f0ff; 
+}
+.leg-perimeter { 
+  background: transparent; 
+  border: 1.5px dashed rgba(0, 240, 255, 0.6); 
+  border-radius: 50%; 
+}
 
-.traj-stats-row {
-  display: flex;
-  gap: 12px;
-  padding: 4px 0 0 0;
+.traj-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px 8px;
+  padding: 6px 0 0 0;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8.5px;
   color: var(--text-dim);
+}
+
+.traj-stat-wide {
+  grid-column: span 2;
 }
 
 .traj-stat strong {

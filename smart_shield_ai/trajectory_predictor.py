@@ -52,6 +52,29 @@ class TrajectoryPredictor:
             tuple(state["velocity"]),
         )
 
+    def predict_3d(
+        self,
+        position_3d: Tuple[float, float, float],
+        velocity_3d: Tuple[float, float, float],
+    ) -> List[Dict[str, float]]:
+        """Return future 3D coordinates in metric space [x, y, z] over time."""
+        x, y, z = float(position_3d[0]), float(position_3d[1]), float(position_3d[2])
+        vx, vy, vz = float(velocity_3d[0]), float(velocity_3d[1]), float(velocity_3d[2])
+
+        points = []
+        t = self.step
+
+        while t <= self.horizon + 1e-9:
+            points.append({
+                "time": round(t, 2),
+                "x_m": round(x + vx * t, 2),
+                "y_m": round(y + vy * t, 2),
+                "z_m": round(max(0.0, z + vz * t), 2),
+            })
+            t += self.step
+
+        return points
+
 
 if __name__ == "__main__":
     predictor = TrajectoryPredictor()

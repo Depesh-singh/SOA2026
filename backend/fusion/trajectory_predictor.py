@@ -20,34 +20,63 @@ class TrajectoryPredictor:
         vx_ms: float,
         vy_ms: float,
         vz_ms: float = 0.0,
-        horizon_s: Optional[float] = None
+        horizon_s: Optional[float] = None,
+        base_uncertainty_m: float = 2.0
     ) -> List[Dict[str, float]]:
         """
         Projects future (x, y, z) waypoints over time using a Constant Velocity (CV) kinematic motion model.
-        Returns a list of timestamped waypoints {t_sec, x_m, y_m, z_m, distance_m}.
+        Returns a list of timestamped waypoints {t_sec, x_m, y_m, z_m, distance_m, azimuth_deg, uncertainty_m}.
         """
         horizon = horizon_s or self.default_horizon
         waypoints = []
-        num_steps = int(horizon / self.step_dt)
+        num_steps = max(1, int(round(horizon / self.step_dt)))
 
         for step in range(1, num_steps + 1):
-            t = step * self.step_dt
+            t = round(step * self.step_dt, 2)
             fut_x = x_m + (vx_ms * t)
             fut_y = y_m + (vy_ms * t)
-            fut_z = z_m + (vz_ms * t)
+            fut_z = max(0.0, z_m + (vz_ms * t))
             fut_dist = math.sqrt(fut_x**2 + fut_y**2 + fut_z**2)
             fut_az = math.degrees(math.atan2(fut_x, fut_y))
+            # Uncertainty expands linearly with prediction time
+            uncertainty = round(base_uncertainty_m + (0.5 * t), 2)
 
             waypoints.append({
-                "t_sec": round(t, 2),
+                "t_sec": t,
                 "x_m": round(fut_x, 2),
                 "y_m": round(fut_y, 2),
                 "z_m": round(fut_z, 2),
                 "distance_m": round(fut_dist, 2),
-                "azimuth_deg": round(fut_az, 2)
+                "azimuth_deg": round(fut_az, 2),
+                "uncertainty_m": uncertainty
             })
 
         return waypoints
+
+    def check_protected_zone_approach(
+        self,
+        waypoints: List[Dict[str, float]],
+        zone_radius_m: float = 50.0
+    ) -> Dict[str, Any]:
+        """
+        Evaluates whether the projected future trajectory penetrates the protected base perimeter.
+        """
+        for wp in waypoints:
+            ground_dist = math.sqrt(wp["x_m"]**2 + wp["y_m"]**2)
+            if ground_dist <= zone_radius_m:
+                return {
+                    "is_breaching": True,
+                    "tti_sec": wp["t_sec"],
+                    "breach_distance_m": round(ground_dist, 1),
+                    "zone_radius_m": zone_radius_m
+                }
+
+        return {
+            "is_breaching": False,
+            "tti_sec": None,
+            "breach_distance_m": None,
+            "zone_radius_m": zone_radius_m
+        }
 
     def calculate_closest_point_of_approach(
         self,

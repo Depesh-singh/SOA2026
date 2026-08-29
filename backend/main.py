@@ -38,6 +38,7 @@ from .config import config
 from .gimbal.pid import PIDGimbalController
 from .cyber_defense.rf_monitor import CyberRFMonitor
 from .simulator import ScenarioSimulator
+from .fusion.trajectory_predictor import TrajectoryPredictor as FusionTrajectoryPredictor
 
 # Core AI Engine (Preserved algorithms)
 try:
@@ -382,6 +383,10 @@ trajectory_predictor = TrajectoryPredictor(
     horizon=config.ai.prediction_horizon,
     step=config.ai.prediction_step
 )
+fusion_trajectory_predictor = FusionTrajectoryPredictor(
+    default_horizon_seconds=config.ai.prediction_horizon,
+    step_dt=config.ai.prediction_step
+)
 state_estimators: Dict[int, StateEstimator] = {}
 
 # Other controllers
@@ -689,12 +694,41 @@ class AIPipelineWorker:
                                 estimator.update_position(cx, cy)
                                 state_dict = estimator.get_state()
 
+                                # 3b. Tactical 3D Metric Coordinates
+                                target_range = radar_range if (radar_range is not None and radar_range > 0) else max(10.0, 200.0 - (max(x2 - x1, y2 - y1) * 0.8))
+                                az_deg = ((cx - (w / 2.0)) / (w / 2.0)) * 45.0
+                                dist_m = target_range
+                                x_m = dist_m * math.sin(math.radians(az_deg))
+                                y_m = dist_m * math.cos(math.radians(az_deg))
+                                z_m = 15.0
+
                                 # 4. Trajectory Prediction (smart_shield_ai.trajectory_predictor)
                                 traj_points = trajectory_predictor.predict_from_state(state_dict)
 
+                                # 4b. 3D Metric Future Trajectory & Intercept Prediction (0.0s -> 3.0s)
+                                vx_ms_val = round(fused_spd * math.sin(math.radians(az_deg)), 2)
+                                vy_ms_val = round(-fused_spd * math.cos(math.radians(az_deg)), 2)
+                                vz_ms_val = 0.0
+
+                                future_waypoints_3d = fusion_trajectory_predictor.predict_future_trajectory(
+                                    x_m=x_m, y_m=y_m, z_m=z_m,
+                                    vx_ms=vx_ms_val, vy_ms=vy_ms_val, vz_ms=vz_ms_val,
+                                    horizon_s=3.0,
+                                    base_uncertainty_m=2.0
+                                )
+                                cpa_metrics = fusion_trajectory_predictor.calculate_closest_point_of_approach(
+                                    x_m=x_m, y_m=y_m, z_m=z_m,
+                                    vx_ms=vx_ms_val, vy_ms=vy_ms_val, vz_ms=vz_ms_val
+                                )
+                                zone_analysis = fusion_trajectory_predictor.check_protected_zone_approach(
+                                    waypoints=future_waypoints_3d,
+                                    zone_radius_m=50.0
+                                )
+                                end_pt = future_waypoints_3d[-1] if future_waypoints_3d else {
+                                    "x_m": x_m, "y_m": y_m, "z_m": z_m, "t_sec": 3.0, "uncertainty_m": 2.0
+                                }
+
                                 # 5. Risk Assessment (smart_shield_ai.risk_engine)
-                                target_range = radar_range if (radar_range is not None and radar_range > 0) else max(10.0, 200.0 - (max(x2 - x1, y2 - y1) * 0.8))
-                                
                                 risk_result = risk_engine.assess(
                                     detection_confidence=float(score),
                                     speed_mps=float(fused_spd),
@@ -718,13 +752,6 @@ class AIPipelineWorker:
                                     risk={"score": float(risk_result.score), "level": str(risk_result.level)}
                                 )
 
-                                # Convert image coordinates to local tactical coordinates
-                                az_deg = ((cx - (w / 2.0)) / (w / 2.0)) * 45.0
-                                dist_m = target_range
-                                x_m = dist_m * math.sin(math.radians(az_deg))
-                                y_m = dist_m * math.cos(math.radians(az_deg))
-                                z_m = 15.0
-
                                 # Assemble Target Payload
                                 target_info = {
                                     "id": f"TRK-{tid:03d}",
@@ -739,8 +766,9 @@ class AIPipelineWorker:
                                     "x_m": round(x_m, 1),
                                     "y_m": round(y_m, 1),
                                     "z_m": round(z_m, 1),
-                                    "vx_ms": round(fused_spd * math.sin(math.radians(az_deg)), 1),
-                                    "vy_ms": round(-fused_spd * math.cos(math.radians(az_deg)), 1),
+                                    "vx_ms": vx_ms_val,
+                                    "vy_ms": vy_ms_val,
+                                    "vz_ms": vz_ms_val,
                                     "distance_m": round(dist_m, 1),
                                     "azimuth_deg": round(az_deg, 1),
                                     "speed_ms": round(fused_spd, 1),
@@ -751,6 +779,17 @@ class AIPipelineWorker:
                                     "radar_range_m": radar_range,
                                     "fused_velocity": fused_vel_res,
                                     "trajectory_prediction": traj_points,
+                                    "future_waypoints": future_waypoints_3d,
+                                    "predicted_endpoint_3s": {
+                                        "x_m": end_pt["x_m"],
+                                        "y_m": end_pt["y_m"],
+                                        "z_m": end_pt["z_m"],
+                                        "t_sec": end_pt["t_sec"]
+                                    },
+                                    "prediction_horizon": 3.0,
+                                    "cpa": cpa_metrics,
+                                    "protected_zone": zone_analysis,
+                                    "uncertainty_m": end_pt.get("uncertainty_m", 2.0),
                                     "threat_score": int(risk_result.score),
                                     "threat_level": risk_result.level,
                                     "threat_category": "CRITICAL" if risk_result.level == "HIGH" else ("ELEVATED" if risk_result.level == "MEDIUM" else "NOMINAL"),
@@ -803,6 +842,24 @@ class AIPipelineWorker:
                             range_m=t.get("distance_m", 60.0)
                         )
 
+                        future_waypoints_3d = fusion_trajectory_predictor.predict_future_trajectory(
+                            x_m=t["x_m"], y_m=t["y_m"], z_m=t["z_m"],
+                            vx_ms=t["vx_ms"], vy_ms=t["vy_ms"], vz_ms=0.0,
+                            horizon_s=3.0,
+                            base_uncertainty_m=1.5
+                        )
+                        cpa_metrics = fusion_trajectory_predictor.calculate_closest_point_of_approach(
+                            x_m=t["x_m"], y_m=t["y_m"], z_m=t["z_m"],
+                            vx_ms=t["vx_ms"], vy_ms=t["vy_ms"], vz_ms=0.0
+                        )
+                        zone_analysis = fusion_trajectory_predictor.check_protected_zone_approach(
+                            waypoints=future_waypoints_3d,
+                            zone_radius_m=50.0
+                        )
+                        end_pt = future_waypoints_3d[-1] if future_waypoints_3d else {
+                            "x_m": t["x_m"], "y_m": t["y_m"], "z_m": t["z_m"], "t_sec": 3.0, "uncertainty_m": 1.5
+                        }
+
                         t_info = {
                             "id": t["id"],
                             "track_id": tid_num,
@@ -814,6 +871,7 @@ class AIPipelineWorker:
                             "z_m": t["z_m"],
                             "vx_ms": t["vx_ms"],
                             "vy_ms": t["vy_ms"],
+                            "vz_ms": 0.0,
                             "distance_m": t["distance_m"],
                             "azimuth_deg": t["azimuth_deg"],
                             "speed_ms": t["speed_ms"],
@@ -822,6 +880,17 @@ class AIPipelineWorker:
                             "radar_speed_mps": t.get("vy_ms"),
                             "radar_range_m": t.get("distance_m"),
                             "fused_velocity": {"fused_velocity": t["speed_ms"], "source": "simulated"},
+                            "future_waypoints": future_waypoints_3d,
+                            "predicted_endpoint_3s": {
+                                "x_m": end_pt["x_m"],
+                                "y_m": end_pt["y_m"],
+                                "z_m": end_pt["z_m"],
+                                "t_sec": end_pt["t_sec"]
+                            },
+                            "prediction_horizon": 3.0,
+                            "cpa": cpa_metrics,
+                            "protected_zone": zone_analysis,
+                            "uncertainty_m": end_pt.get("uncertainty_m", 1.5),
                             "threat_score": int(r_risk.score),
                             "threat_level": r_risk.level,
                             "threat_category": "CRITICAL" if r_risk.level == "HIGH" else ("ELEVATED" if r_risk.level == "MEDIUM" else "NOMINAL"),
