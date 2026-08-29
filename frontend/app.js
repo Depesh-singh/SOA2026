@@ -42,6 +42,13 @@ class SmartShieldC2 {
         console.log("SMART SHIELD C2 WebSocket Connected.");
         this.updateConnectionBadge(true);
         this.addEventLog("[SYSTEM] Connected to C2 Live Telemetry Stream at 30 FPS.");
+        
+        // Refresh live camera feed
+        const mjpegImg = document.getElementById('mjpegVideoFeed');
+        if (mjpegImg && this.visionMode === 'LIVE_STREAM') {
+          mjpegImg.src = `/api/video_feed?t=${Date.now()}`;
+          mjpegImg.style.display = 'block';
+        }
       };
 
       this.ws.onmessage = (event) => {
@@ -493,7 +500,10 @@ window.setVisionMode = function(mode) {
   const mjpegImg = document.getElementById('mjpegVideoFeed');
 
   if (mode === 'LIVE_STREAM') {
-    if (mjpegImg) mjpegImg.style.display = 'block';
+    if (mjpegImg) {
+      mjpegImg.src = `/api/video_feed?t=${Date.now()}`;
+      mjpegImg.style.display = 'block';
+    }
   } else {
     if (mjpegImg) mjpegImg.style.display = 'none';
     if (window.cinematicOpticalFLIR) {

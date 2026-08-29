@@ -277,6 +277,7 @@ class CameraStreamManager:
         self.thread.start()
 
     def _capture_loop(self):
+        consecutive_fails = 0
         while self.running:
             try:
                 if self.cap is None or not self.cap.isOpened():
@@ -321,13 +322,18 @@ class CameraStreamManager:
                         time.sleep(0.05)
                         continue
                     else:
-                        self.connected = False
-                        if self.cap:
-                            self.cap.release()
-                        self.cap = None
-                        time.sleep(1.0)
+                        consecutive_fails += 1
+                        if consecutive_fails >= 10:
+                            self.connected = False
+                            if self.cap:
+                                self.cap.release()
+                            self.cap = None
+                            time.sleep(1.0)
+                        else:
+                            time.sleep(0.03)
                         continue
 
+                consecutive_fails = 0
                 self.connected = True
                 with self.lock:
                     self.current_frame = frame.copy()
