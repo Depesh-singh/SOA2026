@@ -256,15 +256,29 @@ class SmartShieldC2 {
       ];
       if (payload.gimbal.servo_connected !== undefined) {
         const servoPan = (payload.gimbal.servo_pan || 90.0).toFixed(1);
-        const servoStatus = payload.gimbal.servo_status || 'IDLE';
-        const isTracking = servoStatus === 'TRACKING' && payload.primary_target;
+        const trackingStatus = payload.gimbal.tracking_status || 'IDLE';
+        const isLocked = trackingStatus === 'LOCKED' && payload.primary_target;
+        const isCoasting = trackingStatus === 'COASTING';
+
         badges.forEach(b => {
           if (!b) return;
           if (payload.gimbal.servo_connected) {
-            b.innerText = `🎯 SERVO: ${isTracking ? 'TRACKING' : 'IDLE'} ${servoPan}°`;
-            b.style.background = isTracking ? '#7f1d1d' : '#14532d';
-            b.style.color = isTracking ? '#fca5a5' : '#4ade80';
-            b.style.borderColor = isTracking ? '#ef4444' : '#22c55e';
+            if (isLocked) {
+              b.innerText = `🔒 LOCKED [TRK-${payload.primary_target.track_id || 1}] ${servoPan}°`;
+              b.style.background = '#7f1d1d';
+              b.style.color = '#fca5a5';
+              b.style.borderColor = '#ef4444';
+            } else if (isCoasting) {
+              b.innerText = `⏳ COASTING ${servoPan}°`;
+              b.style.background = '#78350f';
+              b.style.color = '#fde047';
+              b.style.borderColor = '#eab308';
+            } else {
+              b.innerText = `🎯 SERVO: IDLE ${servoPan}°`;
+              b.style.background = '#14532d';
+              b.style.color = '#4ade80';
+              b.style.borderColor = '#22c55e';
+            }
           } else {
             b.innerText = '🎯 SERVO: OFFLINE';
             b.style.background = '#2a2a2a';
@@ -272,6 +286,21 @@ class SmartShieldC2 {
             b.style.borderColor = '#44444455';
           }
         });
+
+        // Update FLIR Target Designation Banner
+        const desTitle = document.getElementById('designation-title');
+        const desDesc = document.getElementById('designation-text');
+        if (desTitle && desDesc) {
+          if (isLocked) {
+            desTitle.innerText = `🔒 TARGET LOCKED: ${payload.primary_target.id || 'DRONE-01'} [ACTIVE AUTO-CENTER]`;
+            desTitle.className = 'designator-title text-red';
+            desDesc.innerText = `AZIMUTH: ${servoPan}° • VISUAL SERVOING LOCKED • CONTINUOUS STEP-BY-STEP RECONNAISSANCE`;
+          } else if (isCoasting) {
+            desTitle.innerText = `⏳ MEMORY COASTING: EXTRAPOLATING TRAJECTORY`;
+            desTitle.className = 'designator-title text-amber';
+            desDesc.innerText = `TARGET OCCLUSION DETECTED • MAINTAINING GIMBAL SLEW IN VECTOR DIRECTION`;
+          }
+        }
       }
     }
 
@@ -776,6 +805,25 @@ window.toggleInvertServo = function() {
       });
       if (window.smartShield) {
         window.smartShield.addEventLog(`🔄 Servo pan direction toggled: ${mode}`);
+      }
+    })
+    .catch(() => {});
+};
+
+window.toggleGimbalMode = function() {
+  const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
+  fetch(`${apiBase}/api/gimbal/toggle_mode`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      const btn = document.getElementById('btn-mode-top');
+      if (btn) {
+        const isCam = d.mode === 'CAMERA_MOUNTED';
+        btn.innerText = isCam ? '🔭 MODE: AUTO-LOCK (CAM)' : '🎯 MODE: POINTER (FIXED)';
+        btn.style.background = isCam ? '#065f46' : '#854d0e';
+        btn.style.borderColor = isCam ? '#34d399' : '#facc15';
+      }
+      if (window.smartShield) {
+        window.smartShield.addEventLog(`🔭 Gimbal tracking mode set to: ${d.mode}`);
       }
     })
     .catch(() => {});

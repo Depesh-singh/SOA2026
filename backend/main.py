@@ -686,11 +686,13 @@ class AIPipelineWorker:
                     annotated_frame = frame.copy()
                     h, w = frame.shape[:2]
 
-                    # Run GPU YOLO Inference
+                    # Run GPU YOLO Inference with ByteTrack tracking
                     if yolo_model is not None:
                         try:
-                            results = yolo_model.predict(
+                            results = yolo_model.track(
                                 frame,
+                                persist=True,
+                                tracker="bytetrack.yaml",
                                 device=self.device,
                                 conf=config.ai.yolo_confidence,
                                 iou=config.ai.yolo_iou,
@@ -698,13 +700,23 @@ class AIPipelineWorker:
                                 verbose=False
                             )
                         except Exception:
-                            results = yolo_model.predict(
-                                frame,
-                                conf=config.ai.yolo_confidence,
-                                iou=config.ai.yolo_iou,
-                                imgsz=config.ai.yolo_imgsz,
-                                verbose=False
-                            )
+                            try:
+                                results = yolo_model.predict(
+                                    frame,
+                                    device=self.device,
+                                    conf=config.ai.yolo_confidence,
+                                    iou=config.ai.yolo_iou,
+                                    imgsz=config.ai.yolo_imgsz,
+                                    verbose=False
+                                )
+                            except Exception:
+                                results = yolo_model.predict(
+                                    frame,
+                                    conf=config.ai.yolo_confidence,
+                                    iou=config.ai.yolo_iou,
+                                    imgsz=config.ai.yolo_imgsz,
+                                    verbose=False
+                                )
 
                         # If primary model didn't detect, fallback to secondary universal model
                         if (results[0].boxes is None or len(results[0].boxes) == 0) and secondary_yolo_model is not None:
@@ -1003,12 +1015,10 @@ class AIPipelineWorker:
                 with frame_lock:
                     latest_annotated_frame = annotated_frame.copy()
 
-                # Gimbal & Physical Servo Tracking (Proportional Tracking with Idle Hold)
-                target_u = primary_target.get("center_u") if primary_target else None
-                target_v = primary_target.get("center_v") if primary_target else None
-                pan_deg, tilt_deg, has_active_target = gimbal_ctrl.compute_proportional_angles(
-                    target_center_u=target_u,
-                    target_center_v=target_v,
+                # Active Target Lock & Visual Servoing Gimbal Tracking
+                pan_deg, tilt_deg, lock_meta = gimbal_ctrl.update_tracking(
+                    targets=evaluated_targets,
+                    primary_target=primary_target,
                     frame_width=config.ai.camera_width,
                     frame_height=config.ai.camera_height
                 )
@@ -1038,6 +1048,7 @@ class AIPipelineWorker:
                         "pan_deg": pan_deg,
                         "tilt_deg": tilt_deg,
                         "auto_track": gimbal_ctrl.auto_track_enabled,
+                        **lock_meta,
                         **esp32_bridge.get_servo_state()
                     },
                     "cyber_rf": rf_status,
@@ -1133,6 +1144,24 @@ async def get_system_status():
 async def api_toggle_invert():
     new_state = gimbal_ctrl.toggle_invert()
     return {"status": "SUCCESS", "invert_pan": new_state}
+
+
+@app.post("/api/gimbal/toggle_mode")
+async def api_toggle_gimbal_mode():
+    new_mode = gimbal_ctrl.toggle_mode()
+    return {"status": "SUCCESS", "mode": new_mode}
+
+
+@app.post("/api/gimbal/lock_target")
+async def api_lock_target(track_id: int):
+    gimbal_ctrl.lock_target(track_id)
+    return {"status": "SUCCESS", "locked_track_id": track_id}
+
+
+@app.post("/api/gimbal/unlock_target")
+async def api_unlock_target():
+    gimbal_ctrl.unlock_target()
+    return {"status": "SUCCESS", "locked_track_id": None}
 
 
 @app.post("/api/gimbal/recenter")
