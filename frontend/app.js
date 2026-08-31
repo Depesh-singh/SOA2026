@@ -249,23 +249,29 @@ class SmartShieldC2 {
       this.gimbalPan = payload.gimbal.pan_deg || this.gimbalPan;
       this.gimbalTilt = payload.gimbal.tilt_deg || this.gimbalTilt;
 
-      // Update ESP32 Servo Tracking Badge
-      const servoBadge = document.getElementById('servo-status-badge');
-      if (servoBadge && payload.gimbal.servo_connected !== undefined) {
+      // Update ESP32 Servo Tracking Badges (Top Toolbar & Bottom Bar)
+      const badges = [
+        document.getElementById('servo-status-badge'),
+        document.getElementById('servo-status-badge-top')
+      ];
+      if (payload.gimbal.servo_connected !== undefined) {
         const servoPan = (payload.gimbal.servo_pan || 90.0).toFixed(1);
         const servoStatus = payload.gimbal.servo_status || 'IDLE';
         const isTracking = servoStatus === 'TRACKING' && payload.primary_target;
-        if (payload.gimbal.servo_connected) {
-          servoBadge.innerText = `🎯 SERVO: ${isTracking ? 'TRACKING' : 'IDLE'} ${servoPan}°`;
-          servoBadge.style.background = isTracking ? '#3a1a1a' : '#1a3a1a';
-          servoBadge.style.color = isTracking ? '#ff4444' : '#00ff88';
-          servoBadge.style.borderColor = isTracking ? '#ff444455' : '#00ff8855';
-        } else {
-          servoBadge.innerText = '🎯 SERVO: OFFLINE';
-          servoBadge.style.background = '#2a2a2a';
-          servoBadge.style.color = '#666';
-          servoBadge.style.borderColor = '#44444455';
-        }
+        badges.forEach(b => {
+          if (!b) return;
+          if (payload.gimbal.servo_connected) {
+            b.innerText = `🎯 SERVO: ${isTracking ? 'TRACKING' : 'IDLE'} ${servoPan}°`;
+            b.style.background = isTracking ? '#7f1d1d' : '#14532d';
+            b.style.color = isTracking ? '#fca5a5' : '#4ade80';
+            b.style.borderColor = isTracking ? '#ef4444' : '#22c55e';
+          } else {
+            b.innerText = '🎯 SERVO: OFFLINE';
+            b.style.background = '#2a2a2a';
+            b.style.color = '#666';
+            b.style.borderColor = '#44444455';
+          }
+        });
       }
     }
 
