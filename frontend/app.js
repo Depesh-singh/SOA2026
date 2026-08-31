@@ -248,6 +248,25 @@ class SmartShieldC2 {
     if (payload.gimbal) {
       this.gimbalPan = payload.gimbal.pan_deg || this.gimbalPan;
       this.gimbalTilt = payload.gimbal.tilt_deg || this.gimbalTilt;
+
+      // Update ESP32 Servo Tracking Badge
+      const servoBadge = document.getElementById('servo-status-badge');
+      if (servoBadge && payload.gimbal.servo_connected !== undefined) {
+        const servoPan = (payload.gimbal.servo_pan || 90.0).toFixed(1);
+        const servoStatus = payload.gimbal.servo_status || 'IDLE';
+        const isTracking = servoStatus === 'TRACKING' && payload.primary_target;
+        if (payload.gimbal.servo_connected) {
+          servoBadge.innerText = `🎯 SERVO: ${isTracking ? 'TRACKING' : 'IDLE'} ${servoPan}°`;
+          servoBadge.style.background = isTracking ? '#3a1a1a' : '#1a3a1a';
+          servoBadge.style.color = isTracking ? '#ff4444' : '#00ff88';
+          servoBadge.style.borderColor = isTracking ? '#ff444455' : '#00ff8855';
+        } else {
+          servoBadge.innerText = '🎯 SERVO: OFFLINE';
+          servoBadge.style.background = '#2a2a2a';
+          servoBadge.style.color = '#666';
+          servoBadge.style.borderColor = '#44444455';
+        }
+      }
     }
 
     this.render();
@@ -604,17 +623,18 @@ window.switchVideoSource = async function(sourceType) {
     const data = await res.json();
 
     if (data.status === 'SUCCESS') {
+      const srcName = data.source_name || 'USB Camera';
       if (statusBar && statusText) {
         statusBar.style.display = 'flex';
-        statusText.innerHTML = `📷 <strong>Active Input:</strong> Switched to Live Webcam (Index 0).`;
+        statusText.innerHTML = `📷 <strong>Active Input:</strong> Switched to ${srcName}.`;
         setTimeout(() => { statusBar.style.display = 'none'; }, 4000);
       }
       if (badge) {
-        badge.innerText = 'FEED: USB WEBCAM';
+        badge.innerText = `FEED: ${srcName.toUpperCase()}`;
         badge.className = 'pill-mil pill-online';
       }
       if (window.smartShield) {
-        window.smartShield.addEventLog(`[HARDWARE] Switched stream to USB Webcam`);
+        window.smartShield.addEventLog(`[HARDWARE] Switched stream to ${srcName}`);
       }
       const mjpegImg = document.getElementById('mjpegVideoFeed');
       if (mjpegImg) {

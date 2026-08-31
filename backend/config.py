@@ -15,12 +15,12 @@ class AIEngineConfig(BaseModel):
         "SMART_SHIELD_MODEL",
         str(BASE_DIR / "smart_shield_ai" / "models" / "best.pt")
     )
-    camera_source: str = os.getenv("SMART_SHIELD_CAMERA", "0")
+    camera_source: str = os.getenv("SMART_SHIELD_CAMERA", "1")
     camera_width: int = 640
     camera_height: int = 480
     camera_fps: int = 30
     meters_per_pixel: Optional[float] = None
-    yolo_confidence: float = 0.20
+    yolo_confidence: float = 0.50
     yolo_iou: float = 0.45
     yolo_imgsz: int = 416
     device: str = "cuda:0"
@@ -28,7 +28,7 @@ class AIEngineConfig(BaseModel):
     speed_smoothing: int = 5
     prediction_horizon: float = 3.0
     prediction_step: float = 0.2
-    low_confidence_threshold: float = 0.35
+    low_confidence_threshold: float = 0.45
     medium_risk_threshold: float = 40.0
     high_risk_threshold: float = 70.0
     log_dir: str = str(BASE_DIR / "outputs" / "logs")
@@ -71,6 +71,10 @@ class GimbalConfig(BaseModel):
     kp_tilt: float = 0.08
     ki_tilt: float = 0.002
     kd_tilt: float = 0.015
+
+    # ESP32 MG996R Servo Tracking
+    servo_enabled: bool = os.getenv("SMART_SHIELD_SERVO_ENABLED", "true").lower() in ("true", "1", "yes")
+    servo_update_hz: int = 10  # Command send rate to ESP32 (10 = every 100ms)
 
 class CyberRFConfig(BaseModel):
     baseline_noise_floor_dbm: float = -88.5

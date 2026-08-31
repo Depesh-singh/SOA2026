@@ -15,6 +15,7 @@ import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union
+import queue
 
 import cv2
 import numpy as np
@@ -84,106 +85,175 @@ app.add_middleware(
 
 
 # ============================================================================
-# BACKGROUND RADAR / ESP32 SERIAL READER
-# Supports both CSV (range_m,velocity_mps) and JSON formats seamlessly
+# BIDIRECTIONAL ESP32 SERIAL BRIDGE
+# Reads radar/sensor telemetry AND sends servo tracking commands over COM5
 # ============================================================================
 
-class RadarReader:
+class ESP32SerialBridge:
     """
-    Background asynchronous radar/ESP32 serial reader.
-    The reader never blocks the main video/AI loop. If disconnected,
-    system continues operating with camera data only.
+    Bidirectional serial bridge to ESP32 over a single COM port.
+    - READS: Radar telemetry, servo acknowledgments, sensor data (JSON or CSV)
+    - WRITES: Servo pan angle commands, threat level, buzzer control
+    Thread-safe command queue ensures non-blocking writes from the main loop.
     """
     def __init__(self, port: str = "COM5", baudrate: int = 115200):
         self.port = port
         self.baudrate = int(baudrate)
+        # Radar telemetry state
         self.range_m: Optional[float] = None
         self.velocity_mps: Optional[float] = None
         self.raw_data: Dict[str, Any] = {}
         self.connected = False
         self.running = False
         self.thread: Optional[threading.Thread] = None
+        # Servo tracking state
+        self.servo_pan: float = 90.0
+        self.servo_status: str = "IDLE"
+        self.servo_connected = False
+        # Thread-safe command queue (outbound to ESP32)
+        self._cmd_queue: "queue.Queue[str]" = queue.Queue(maxsize=20)
+        self._last_cmd_time: float = 0.0
 
     def start(self):
         if not self.port:
-            logger.info("[RADAR] No serial port configured. Radar disabled.")
+            logger.info("[ESP32] No serial port configured. ESP32 bridge disabled.")
             return
         if serial is None:
-            logger.warning("[RADAR] pyserial is not installed. Radar disabled.")
+            logger.warning("[ESP32] pyserial is not installed. ESP32 bridge disabled.")
             return
         if self.running:
             return
 
         self.running = True
         self.thread = threading.Thread(
-            target=self._read_loop,
-            name="SmartShield-RadarThread",
+            target=self._bridge_loop,
+            name="SmartShield-ESP32Bridge",
             daemon=True
         )
         self.thread.start()
-        logger.info(f"[RADAR] Background reader started on {self.port} @ {self.baudrate}")
+        logger.info(f"[ESP32] Bidirectional bridge started on {self.port} @ {self.baudrate}")
 
-    def _read_loop(self):
+    def _bridge_loop(self):
+        """Main serial loop: interleaves reading telemetry and writing servo commands."""
         while self.running:
             try:
-                with serial.Serial(self.port, self.baudrate, timeout=1.0) as ser:
+                with serial.Serial(self.port, self.baudrate, timeout=0.05) as ser:
                     self.connected = True
-                    logger.info(f"[RADAR] Hardware Connected: {self.port} @ {self.baudrate}")
+                    self.servo_connected = True
+                    logger.info(f"[ESP32] Hardware Connected: {self.port} @ {self.baudrate}")
 
                     while self.running:
-                        raw = ser.readline()
-                        if not raw:
-                            continue
-                        line = raw.decode("utf-8", errors="ignore").strip()
-                        if not line:
-                            continue
+                        # --- WRITE: Send any queued servo commands ---
+                        try:
+                            while not self._cmd_queue.empty():
+                                cmd = self._cmd_queue.get_nowait()
+                                ser.write(cmd.encode('utf-8'))
+                                ser.flush()
+                        except queue.Empty:
+                            pass
+                        except Exception as e_write:
+                            logger.error(f"[ESP32] Serial write error: {e_write}")
 
-                        # 1. Try parsing JSON format:
-                        # {"timestamp": 123456, "temperature": 29.4, "rf_signal": 72, "radar_distance": 45.2, "radar_velocity": 8.3}
-                        if line.startswith("{") and line.endswith("}"):
-                            try:
-                                data = json.loads(line)
-                                self.raw_data = data
-                                r = data.get("radar_distance", data.get("distance_m", data.get("range_m")))
-                                v = data.get("radar_velocity", data.get("velocity_mps", data.get("speed_ms")))
-                                if r is not None and np.isfinite(float(r)):
-                                    self.range_m = float(r)
-                                if v is not None and np.isfinite(float(v)):
-                                    self.velocity_mps = float(v)
-                                continue
-                            except Exception:
-                                pass
+                        # --- READ: Process incoming telemetry lines ---
+                        try:
+                            if ser.in_waiting > 0:
+                                raw = ser.readline()
+                                if not raw:
+                                    continue
+                                line = raw.decode("utf-8", errors="ignore").strip()
+                                if not line:
+                                    continue
+                                self._parse_incoming(line)
+                        except Exception as e_read:
+                            if self.running:
+                                pass  # Transient read errors are normal
 
-                        # 2. Try parsing CSV format: range_m,velocity_mps
-                        parts = [p.strip() for p in line.split(",")]
-                        if len(parts) >= 2:
-                            try:
-                                r = float(parts[0])
-                                v = float(parts[1])
-                                if np.isfinite(r) and np.isfinite(v):
-                                    self.range_m = r
-                                    self.velocity_mps = v
-                                    self.raw_data = {"range_m": r, "velocity_mps": v}
-                            except ValueError:
-                                continue
+                        # Small sleep to prevent CPU spin
+                        time.sleep(0.005)
 
             except SerialException:
                 self.connected = False
+                self.servo_connected = False
                 if self.running:
                     time.sleep(2.0)
             except Exception as e:
                 self.connected = False
+                self.servo_connected = False
                 if self.running:
                     time.sleep(2.0)
 
         self.connected = False
+        self.servo_connected = False
+
+    def _parse_incoming(self, line: str):
+        """Parse incoming JSON or CSV telemetry from ESP32."""
+        # 1. Try JSON format
+        if line.startswith("{") and line.endswith("}"):
+            try:
+                data = json.loads(line)
+                self.raw_data = data
+
+                # Servo acknowledgment
+                if "servo_pan" in data:
+                    self.servo_pan = float(data["servo_pan"])
+                if "status" in data:
+                    self.servo_status = str(data["status"])
+
+                # Radar telemetry
+                r = data.get("radar_distance", data.get("distance_m", data.get("range_m")))
+                v = data.get("radar_velocity", data.get("velocity_mps", data.get("speed_ms")))
+                if r is not None and np.isfinite(float(r)):
+                    self.range_m = float(r)
+                if v is not None and np.isfinite(float(v)):
+                    self.velocity_mps = float(v)
+                return
+            except Exception:
+                pass
+
+        # 2. Try CSV format: range_m,velocity_mps
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 2:
+            try:
+                r = float(parts[0])
+                v = float(parts[1])
+                if np.isfinite(r) and np.isfinite(v):
+                    self.range_m = r
+                    self.velocity_mps = v
+                    self.raw_data = {"range_m": r, "velocity_mps": v}
+            except ValueError:
+                pass
+
+    def send_servo_command(self, pan_deg: float, threat_level: str = "LOW"):
+        """Queue a servo positioning command to ESP32 (non-blocking, rate-limited to ~10Hz)."""
+        now = time.time()
+        min_interval = 1.0 / config.gimbal.servo_update_hz
+        if now - self._last_cmd_time < min_interval:
+            return  # Rate limit
+
+        pan_deg = max(0.0, min(180.0, pan_deg))
+        cmd = json.dumps({"pan": round(pan_deg, 1), "threat": threat_level}) + "\n"
+        try:
+            self._cmd_queue.put_nowait(cmd)
+            self._last_cmd_time = now
+        except queue.Full:
+            pass  # Drop command if queue is full (non-blocking)
 
     def get_latest(self) -> Tuple[Optional[float], Optional[float], bool, Dict[str, Any]]:
+        """Backward-compatible radar data accessor."""
         return self.range_m, self.velocity_mps, self.connected, self.raw_data
+
+    def get_servo_state(self) -> Dict[str, Any]:
+        """Returns current servo tracking state for telemetry."""
+        return {
+            "servo_pan": round(self.servo_pan, 1),
+            "servo_status": self.servo_status,
+            "servo_connected": self.servo_connected
+        }
 
     def stop(self):
         self.running = False
         self.connected = False
+        self.servo_connected = False
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=2.0)
 
@@ -366,7 +436,7 @@ class CameraStreamManager:
 # ============================================================================
 
 db = DatabaseManager(config.db_dsn)
-radar_reader = RadarReader(
+esp32_bridge = ESP32SerialBridge(
     port=config.radar.serial_port,
     baudrate=config.radar.baud_rate
 )
@@ -472,9 +542,9 @@ async def startup_event():
     # 4. Start AI Dedicated GPU Worker Thread
     ai_worker.start()
 
-    # 5. Start Radar Background Reader
+    # 5. Start ESP32 Serial Bridge (Radar + Servo Tracking)
     if config.radar.enabled or config.radar.serial_port:
-        radar_reader.start()
+        esp32_bridge.start()
 
     # 6. Start Real-Time Fast Telemetry Broadcast Loop
     asyncio.create_task(fusion_orchestration_loop())
@@ -486,7 +556,7 @@ async def shutdown_event():
     logger.info("Shutting down SMART-SHIELD services...")
     ai_worker.stop()
     cam_stream.stop()
-    radar_reader.stop()
+    esp32_bridge.stop()
     try:
         await db.close()
     except Exception:
@@ -604,7 +674,7 @@ class AIPipelineWorker:
 
                 # 1. Acquire Camera Frame
                 has_frame, frame = cam_stream.get_frame()
-                radar_range, radar_speed, radar_connected, raw_radar_dict = radar_reader.get_latest()
+                radar_range, radar_speed, radar_connected, raw_radar_dict = esp32_bridge.get_latest()
 
                 evaluated_targets: List[Dict[str, Any]] = []
                 active_track_ids: List[int] = []
@@ -935,6 +1005,7 @@ class AIPipelineWorker:
 
                 # Gimbal Pan/Tilt Tracking
                 pan_deg, tilt_deg = gimbal_ctrl.pan_angle, gimbal_ctrl.tilt_angle
+                threat_for_servo = "LOW"
                 if primary_target and gimbal_ctrl.auto_track_enabled:
                     if "center_u" in primary_target and "center_v" in primary_target:
                         pan_deg, tilt_deg = gimbal_ctrl.compute_tracking_angles(
@@ -947,6 +1018,11 @@ class AIPipelineWorker:
                         target_pan = 90.0 + primary_target["azimuth_deg"]
                         gimbal_ctrl.set_manual_angles(target_pan, 45.0)
                         pan_deg, tilt_deg = gimbal_ctrl.pan_angle, gimbal_ctrl.tilt_angle
+                    threat_for_servo = primary_target.get("threat_level", "LOW")
+
+                # Send servo tracking command to ESP32 via serial bridge
+                if config.gimbal.servo_enabled and esp32_bridge.servo_connected:
+                    esp32_bridge.send_servo_command(pan_deg, threat_level=threat_for_servo)
 
                 # Cyber RF Spectrum Status
                 rf_status = rf_monitor.get_spectrum_scan()
@@ -967,7 +1043,8 @@ class AIPipelineWorker:
                     "gimbal": {
                         "pan_deg": pan_deg,
                         "tilt_deg": tilt_deg,
-                        "auto_track": gimbal_ctrl.auto_track_enabled
+                        "auto_track": gimbal_ctrl.auto_track_enabled,
+                        **esp32_bridge.get_servo_state()
                     },
                     "cyber_rf": rf_status,
                     "sensor_data": {
@@ -1043,12 +1120,16 @@ async def get_video_feed():
 
 @app.get("/api/status")
 async def get_system_status():
+    servo_state = esp32_bridge.get_servo_state()
     return {
         "status": "ONLINE",
         "version": "3.0.0",
         "time": time.time(),
         "camera_connected": cam_stream.connected,
-        "radar_connected": radar_reader.connected,
+        "radar_connected": esp32_bridge.connected,
+        "servo_connected": servo_state["servo_connected"],
+        "servo_pan": servo_state["servo_pan"],
+        "servo_status": servo_state["servo_status"],
         "active_targets": len(latest_targets),
         "primary_target": latest_primary_target["id"] if latest_primary_target else None
     }
@@ -1133,19 +1214,25 @@ async def upload_drone_video(file: UploadFile = File(...)):
 
 @app.post("/api/video/switch_source")
 async def switch_video_source(req: Dict[str, Any]):
-    """Switches active video source between USB Webcam and uploaded video."""
-    src = req.get("source", "usb")
-    if src in ("usb", "webcam", "0", "internal"):
+    """Switches active video source between USB Webcams and uploaded video."""
+    src = str(req.get("source", "1")).strip().lower()
+    if src in ("1", "external", "usb_ext", "ext", "usb"):
+        cam_stream.set_source(1, source_name="USB Camera (Index 1)")
+        return {"status": "SUCCESS", "source_type": "USB_CAMERA", "source_name": "USB Camera (Index 1)"}
+    elif src in ("0", "webcam", "internal", "int"):
         cam_stream.set_source(0, source_name="Webcam (Index 0)")
-        return {"status": "SUCCESS", "source_type": "USB_CAMERA", "source_name": "Webcam (Index 0)"}
-    elif src in ("external", "1"):
-        cam_stream.set_source(1, source_name="External Camera (Index 1)")
-        return {"status": "SUCCESS", "source_type": "EXTERNAL_CAMERA", "source_name": "External Camera (Index 1)"}
-    elif os.path.isfile(str(src)):
-        cam_stream.set_source(str(src), source_name=f"Video: {os.path.basename(str(src))}")
-        return {"status": "SUCCESS", "source_type": "VIDEO_FILE", "source_name": os.path.basename(str(src))}
+        return {"status": "SUCCESS", "source_type": "INTERNAL_WEBCAM", "source_name": "Webcam (Index 0)"}
+    elif os.path.isfile(str(req.get("source"))):
+        path_val = str(req.get("source"))
+        cam_stream.set_source(path_val, source_name=f"Video: {os.path.basename(path_val)}")
+        return {"status": "SUCCESS", "source_type": "VIDEO_FILE", "source_name": os.path.basename(path_val)}
     else:
-        return JSONResponse(status_code=400, content={"status": "ERROR", "message": f"Invalid source: {src}"})
+        try:
+            idx = int(src)
+            cam_stream.set_source(idx, source_name=f"Camera (Index {idx})")
+            return {"status": "SUCCESS", "source_type": f"CAMERA_{idx}", "source_name": f"Camera (Index {idx})"}
+        except ValueError:
+            return JSONResponse(status_code=400, content={"status": "ERROR", "message": f"Invalid source: {src}"})
 
 
 @app.get("/api/video/source")

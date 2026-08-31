@@ -322,10 +322,14 @@
           <button class="btn-source-ctrl btn-upload-act" id="btn-upload-video" onclick="document.getElementById('videoFileInput').click()">
             📁 UPLOAD DRONE VIDEO
           </button>
-          <button class="btn-source-ctrl btn-usb-act" id="btn-switch-usb" onclick="switchVideoSource('usb')">
-            📷 LIVE USB WEBCAM
+          <button class="btn-source-ctrl btn-usb-act" id="btn-switch-usb1" onclick="switchVideoSource('1')">
+            📷 USB CAMERA (EXT)
           </button>
-          <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB WEBCAM</span>
+          <button class="btn-source-ctrl btn-cam-act" id="btn-switch-usb0" onclick="switchVideoSource('0')">
+            📷 WEBCAM (INT)
+          </button>
+          <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB CAMERA</span>
+          <span class="pill-mil" id="servo-status-badge" style="background: #1a3a1a; color: #00ff88; border: 1px solid #00ff8855; margin-left: 6px;">🎯 SERVO: IDLE 90.0°</span>
         </div>
       </div>
 
