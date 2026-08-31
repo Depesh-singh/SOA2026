@@ -1003,22 +1003,16 @@ class AIPipelineWorker:
                 with frame_lock:
                     latest_annotated_frame = annotated_frame.copy()
 
-                # Gimbal Pan/Tilt Tracking
-                pan_deg, tilt_deg = gimbal_ctrl.pan_angle, gimbal_ctrl.tilt_angle
-                threat_for_servo = "LOW"
-                if primary_target and gimbal_ctrl.auto_track_enabled:
-                    if "center_u" in primary_target and "center_v" in primary_target:
-                        pan_deg, tilt_deg = gimbal_ctrl.compute_tracking_angles(
-                            target_center_u=primary_target["center_u"],
-                            target_center_v=primary_target["center_v"],
-                            frame_width=config.ai.camera_width,
-                            frame_height=config.ai.camera_height
-                        )
-                    else:
-                        target_pan = 90.0 + primary_target["azimuth_deg"]
-                        gimbal_ctrl.set_manual_angles(target_pan, 45.0)
-                        pan_deg, tilt_deg = gimbal_ctrl.pan_angle, gimbal_ctrl.tilt_angle
-                    threat_for_servo = primary_target.get("threat_level", "LOW")
+                # Gimbal & Physical Servo Tracking (Proportional Tracking with Idle Hold)
+                target_u = primary_target.get("center_u") if primary_target else None
+                target_v = primary_target.get("center_v") if primary_target else None
+                pan_deg, tilt_deg, has_active_target = gimbal_ctrl.compute_proportional_angles(
+                    target_center_u=target_u,
+                    target_center_v=target_v,
+                    frame_width=config.ai.camera_width,
+                    frame_height=config.ai.camera_height
+                )
+                threat_for_servo = primary_target.get("threat_level", "LOW") if primary_target else "LOW"
 
                 # Send servo tracking command to ESP32 via serial bridge
                 if config.gimbal.servo_enabled and esp32_bridge.servo_connected:
@@ -1133,6 +1127,20 @@ async def get_system_status():
         "active_targets": len(latest_targets),
         "primary_target": latest_primary_target["id"] if latest_primary_target else None
     }
+
+
+@app.post("/api/gimbal/toggle_invert")
+async def api_toggle_invert():
+    new_state = gimbal_ctrl.toggle_invert()
+    return {"status": "SUCCESS", "invert_pan": new_state}
+
+
+@app.post("/api/gimbal/recenter")
+async def api_recenter_gimbal():
+    gimbal_ctrl.set_manual_angles(90.0, 45.0)
+    if esp32_bridge.servo_connected:
+        esp32_bridge.send_servo_command(90.0, threat_level="LOW")
+    return {"status": "SUCCESS", "pan": 90.0, "tilt": 45.0}
 
 
 @app.post("/api/simulation/add_intruder")

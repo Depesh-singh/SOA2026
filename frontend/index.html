@@ -329,7 +329,9 @@
             📷 WEBCAM (INT)
           </button>
           <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB CAMERA</span>
-          <span class="pill-mil" id="servo-status-badge" style="background: #1a3a1a; color: #00ff88; border: 1px solid #00ff8855; margin-left: 6px;">🎯 SERVO: IDLE 90.0°</span>
+          <button class="btn-source-ctrl" style="background: #1e293b; border: 1px solid #38bdf888; color: #38bdf8; font-size: 11px; padding: 4px 8px;" onclick="recenterServo()">🎯 RECENTER</button>
+          <button class="btn-source-ctrl" style="background: #1e293b; border: 1px solid #a855f788; color: #c084fc; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertServo()">🔄 INVERT</button>
+          <span class="pill-mil" id="servo-status-badge" style="background: #1a3a1a; color: #00ff88; border: 1px solid #00ff8855; margin-left: 4px;">🎯 SERVO: IDLE 90.0°</span>
         </div>
       </div>
 

@@ -743,3 +743,28 @@ window.executeEccmFrequencyHop = function() {
   }
 };
 
+window.recenterServo = function() {
+  const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
+  fetch(`${apiBase}/api/gimbal/recenter`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (window.smartShield) {
+        window.smartShield.addEventLog('🎯 Servo recentered to 90.0° (Center position)');
+      }
+    })
+    .catch(() => {});
+};
+
+window.toggleInvertServo = function() {
+  const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
+  fetch(`${apiBase}/api/gimbal/toggle_invert`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      const mode = d.invert_pan ? 'INVERTED (Reversed)' : 'NORMAL';
+      if (window.smartShield) {
+        window.smartShield.addEventLog(`🔄 Servo pan direction toggled: ${mode}`);
+      }
+    })
+    .catch(() => {});
+};
+
