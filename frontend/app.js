@@ -766,7 +766,14 @@ window.toggleInvertServo = function() {
   fetch(`${apiBase}/api/gimbal/toggle_invert`, { method: 'POST' })
     .then(r => r.json())
     .then(d => {
-      const mode = d.invert_pan ? 'INVERTED (Reversed)' : 'NORMAL';
+      const mode = d.invert_pan ? 'REVERSED' : 'NORMAL';
+      const btns = [
+        document.getElementById('btn-invert-top'),
+        document.getElementById('btn-invert-bottom')
+      ];
+      btns.forEach(b => {
+        if (b) b.innerText = `🔄 INVERT (${mode})`;
+      });
       if (window.smartShield) {
         window.smartShield.addEventLog(`🔄 Servo pan direction toggled: ${mode}`);
       }

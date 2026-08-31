@@ -37,7 +37,7 @@ class PIDGimbalController:
         self.last_time = time.time()
         self.last_target_time = 0.0
         self.auto_track_enabled = True
-        self.invert_pan = getattr(cfg, "invert_pan", True)  # True tracks directly towards drone
+        self.invert_pan = getattr(cfg, "invert_pan", False)  # Standard direct mapping
 
         # Filter settings
         self.deadband_px = 12.0       # Ignore pixel movement within +/- 12px to stop jitter
