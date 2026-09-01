@@ -810,6 +810,31 @@ window.toggleInvertServo = function() {
     .catch(() => {});
 };
 
+window.cycleAiSensitivity = function() {
+  const levels = [
+    { conf: 0.28, label: '🎯 SENSITIVITY: 0.28 (BALANCED)' },
+    { conf: 0.18, label: '🔥 SENSITIVITY: 0.18 (MAX SENSITIVE)' },
+    { conf: 0.45, label: '🛡️ SENSITIVITY: 0.45 (HIGH CONF)' }
+  ];
+  if (window._sensIdx === undefined) window._sensIdx = 0;
+  window._sensIdx = (window._sensIdx + 1) % levels.length;
+  const current = levels[window._sensIdx];
+
+  const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
+  fetch(`${apiBase}/api/ai/set_sensitivity?conf=${current.conf}`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      const btn = document.getElementById('btn-conf-top');
+      if (btn) {
+        btn.innerText = current.label;
+      }
+      if (window.smartShield) {
+        window.smartShield.addEventLog(`AI Detection Sensitivity updated to: ${current.conf}`);
+      }
+    })
+    .catch(() => {});
+};
+
 window.toggleGimbalMode = function() {
   const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
   fetch(`${apiBase}/api/gimbal/toggle_mode`, { method: 'POST' })

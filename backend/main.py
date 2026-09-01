@@ -470,9 +470,10 @@ gimbal_ctrl = PIDGimbalController()
 rf_monitor = CyberRFMonitor()
 simulator = ScenarioSimulator()
 
-# Global YOLO model holder
+# Global YOLO model holders (Triple-Model Ensemble)
 yolo_model: Optional[YOLO] = None
 secondary_yolo_model: Optional[YOLO] = None
+military_yolo_model: Optional[YOLO] = None
 
 # Global runtime state for MJPEG video feed and WebSockets
 latest_annotated_frame: Optional[np.ndarray] = None
@@ -489,7 +490,7 @@ frame_lock = threading.Lock()
 
 @app.on_event("startup")
 async def startup_event():
-    global yolo_model, secondary_yolo_model
+    global yolo_model, secondary_yolo_model, military_yolo_model
     logger.info("Initializing SMART-SHIELD v3.0 Core Services...")
 
     # 1. Initialize Database
@@ -535,6 +536,18 @@ async def startup_event():
             secondary_yolo_model = None
     else:
         secondary_yolo_model = None
+
+    # Load Tertiary Military Drone Model (Shahed, Mavic, MQ-9, Mohajer)
+    mil_path = Path(__file__).resolve().parent.parent / "smart_shield_ai" / "models" / "best_military_detector.pt"
+    if mil_path.is_file():
+        try:
+            military_yolo_model = YOLO(str(mil_path)).to(device)
+            logger.info(f"Tertiary Military Drone Model loaded on {device}. Classes: {military_yolo_model.names}")
+        except Exception as e_mil:
+            logger.warning(f"Could not load military model: {e_mil}")
+            military_yolo_model = None
+    else:
+        military_yolo_model = None
 
     # 3. Start Camera Capture Thread
     cam_stream.start()
@@ -731,6 +744,22 @@ class AIPipelineWorker:
                                 )
                                 if sec_results[0].boxes is not None and len(sec_results[0].boxes) > 0:
                                     results = sec_results
+                            except Exception:
+                                pass
+
+                        # If still no detections, fallback to tertiary military detector (Mavic, Shahed, MQ-9, etc.)
+                        if (results[0].boxes is None or len(results[0].boxes) == 0) and military_yolo_model is not None:
+                            try:
+                                mil_results = military_yolo_model.predict(
+                                    frame,
+                                    device=self.device,
+                                    conf=config.ai.yolo_confidence,
+                                    iou=config.ai.yolo_iou,
+                                    imgsz=config.ai.yolo_imgsz,
+                                    verbose=False
+                                )
+                                if mil_results[0].boxes is not None and len(mil_results[0].boxes) > 0:
+                                    results = mil_results
                             except Exception:
                                 pass
 
@@ -1138,6 +1167,13 @@ async def get_system_status():
         "active_targets": len(latest_targets),
         "primary_target": latest_primary_target["id"] if latest_primary_target else None
     }
+
+
+@app.post("/api/ai/set_sensitivity")
+async def api_set_ai_sensitivity(conf: float = 0.28):
+    conf = max(0.05, min(0.95, conf))
+    config.ai.yolo_confidence = conf
+    return {"status": "SUCCESS", "yolo_confidence": conf}
 
 
 @app.post("/api/gimbal/toggle_invert")
