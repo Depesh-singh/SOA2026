@@ -20,7 +20,7 @@ class AIEngineConfig(BaseModel):
     camera_height: int = 480
     camera_fps: int = 30
     meters_per_pixel: Optional[float] = None
-    yolo_confidence: float = 0.42
+    yolo_confidence: float = 0.26
     yolo_iou: float = 0.45
     yolo_imgsz: int = 640
     device: str = "cuda:0"
@@ -28,7 +28,7 @@ class AIEngineConfig(BaseModel):
     speed_smoothing: int = 5
     prediction_horizon: float = 3.0
     prediction_step: float = 0.2
-    low_confidence_threshold: float = 0.35
+    low_confidence_threshold: float = 0.20
     medium_risk_threshold: float = 40.0
     high_risk_threshold: float = 70.0
     log_dir: str = str(BASE_DIR / "outputs" / "logs")
@@ -75,7 +75,7 @@ class GimbalConfig(BaseModel):
     # ESP32 MG996R Servo Tracking
     servo_enabled: bool = os.getenv("SMART_SHIELD_SERVO_ENABLED", "true").lower() in ("true", "1", "yes")
     servo_update_hz: int = 10  # Command send rate to ESP32 (10 = every 100ms)
-    invert_pan: bool = True    # Reversed optical mapping so servo follows drone direction
+    invert_pan: bool = False   # False = drone right → servo right. Toggle with button if needed.
 
 class CyberRFConfig(BaseModel):
     baseline_noise_floor_dbm: float = -88.5

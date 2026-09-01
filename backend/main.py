@@ -134,7 +134,7 @@ class ESP32SerialBridge:
         logger.info(f"[ESP32] Bidirectional bridge started on {self.port} @ {self.baudrate}")
 
     def _bridge_loop(self):
-        """Main serial loop: interleaves reading telemetry and writing servo commands."""
+        """Main serial loop: interleaves reading telemetry and writing servo commands with auto-reconnect."""
         while self.running:
             try:
                 with serial.Serial(self.port, self.baudrate, timeout=0.05) as ser:
@@ -152,35 +152,30 @@ class ESP32SerialBridge:
                         except queue.Empty:
                             pass
                         except Exception as e_write:
-                            logger.error(f"[ESP32] Serial write error: {e_write}")
+                            logger.error(f"[ESP32] Serial write error, reconnecting: {e_write}")
+                            break  # Exit inner loop to re-open serial handle cleanly
 
                         # --- READ: Process incoming telemetry lines ---
                         try:
                             if ser.in_waiting > 0:
                                 raw = ser.readline()
-                                if not raw:
-                                    continue
-                                line = raw.decode("utf-8", errors="ignore").strip()
-                                if not line:
-                                    continue
-                                self._parse_incoming(line)
+                                if raw:
+                                    line = raw.decode("utf-8", errors="ignore").strip()
+                                    if line:
+                                        self._parse_incoming(line)
                         except Exception as e_read:
-                            if self.running:
-                                pass  # Transient read errors are normal
+                            if not self.running:
+                                break
 
                         # Small sleep to prevent CPU spin
                         time.sleep(0.005)
 
-            except SerialException:
-                self.connected = False
-                self.servo_connected = False
-                if self.running:
-                    time.sleep(2.0)
             except Exception as e:
                 self.connected = False
                 self.servo_connected = False
                 if self.running:
-                    time.sleep(2.0)
+                    logger.warning(f"[ESP32] Serial link offline ({e}). Reconnecting in 1.5s...")
+                    time.sleep(1.5)
 
         self.connected = False
         self.servo_connected = False
@@ -223,20 +218,26 @@ class ESP32SerialBridge:
             except ValueError:
                 pass
 
-    def send_servo_command(self, pan_deg: float, threat_level: str = "LOW"):
+    def send_servo_command(self, pan_deg: float, threat_level: str = "LOW", force: bool = False):
         """Queue a servo positioning command to ESP32 (non-blocking, rate-limited to ~10Hz)."""
         now = time.time()
-        min_interval = 1.0 / config.gimbal.servo_update_hz
-        if now - self._last_cmd_time < min_interval:
+        min_interval = 1.0 / max(1, config.gimbal.servo_update_hz)
+        if not force and (now - self._last_cmd_time < min_interval):
             return  # Rate limit
 
         pan_deg = max(0.0, min(180.0, pan_deg))
         cmd = json.dumps({"pan": round(pan_deg, 1), "threat": threat_level}) + "\n"
         try:
+            # Drain older unread commands so queue always delivers the freshest position
+            while not self._cmd_queue.empty():
+                try:
+                    self._cmd_queue.get_nowait()
+                except Exception:
+                    break
             self._cmd_queue.put_nowait(cmd)
             self._last_cmd_time = now
-        except queue.Full:
-            pass  # Drop command if queue is full (non-blocking)
+        except Exception:
+            pass
 
     def get_latest(self) -> Tuple[Optional[float], Optional[float], bool, Dict[str, Any]]:
         """Backward-compatible radar data accessor."""
@@ -627,29 +628,11 @@ def draw_dashboard_hud(
     radar_connected: bool = False,
     high_threat: bool = False
 ):
-    """Draws the tactical military HUD overlay across the video frame."""
+    """Clean video feed: keep center optical boresight crosshair without cluttering top box."""
     h, w = frame.shape[:2]
-
-    # Top Status Bar
-    overlay = frame.copy()
-    cv2.rectangle(overlay, (10, 10), (460, 130), (10, 15, 25), -1)
-    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
-    cv2.rectangle(frame, (10, 10), (460, 130), (0, 240, 255) if not high_threat else (0, 0, 255), 1)
-
-    cv2.putText(frame, "SMART SHIELD — AI C2 DEFENCE", (22, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (0, 240, 255), 2)
-    cv2.putText(frame, f"FPS: {fps:.1f}   TARGETS: {active_tracks:02d}", (22, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (255, 255, 255), 2)
-
-    radar_status_str = "CONNECTED" if radar_connected else "STANDBY / OFFLINE"
-    status_color = (0, 255, 100) if radar_connected else (100, 180, 255)
-    cv2.putText(frame, f"RADAR: {radar_status_str}", (22, 91), cv2.FONT_HERSHEY_SIMPLEX, 0.54, status_color, 2)
-
-    r_spd_txt = f"R-VEL: {radar_speed:.1f} m/s" if radar_speed is not None else "R-VEL: ---"
-    r_rng_txt = f"R-RNG: {radar_range:.1f} m" if radar_range is not None else "R-RNG: ---"
-    cv2.putText(frame, f"{r_spd_txt}   {r_rng_txt}", (22, 116), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (220, 220, 220), 1)
-
-    # Crosshairs & Boresight
+    # Subtle Center Boresight Optical Crosshairs
     cx, cy = w // 2, h // 2
-    cv2.drawMarker(frame, (cx, cy), (0, 240, 255), markerType=cv2.MARKER_CROSS, markerSize=20, thickness=1)
+    cv2.drawMarker(frame, (cx, cy), (0, 240, 255), markerType=cv2.MARKER_CROSS, markerSize=18, thickness=1)
 
 
 # ============================================================================
@@ -731,13 +714,13 @@ class AIPipelineWorker:
                                     verbose=False
                                 )
 
-                        # If primary model didn't detect, fallback to secondary universal model with conservative threshold
+                        # If primary model didn't detect, fallback to secondary universal model
                         if (results[0].boxes is None or len(results[0].boxes) == 0) and secondary_yolo_model is not None:
                             try:
                                 sec_results = secondary_yolo_model.predict(
                                     frame,
                                     device=self.device,
-                                    conf=max(0.40, config.ai.yolo_confidence),
+                                    conf=config.ai.yolo_confidence,
                                     iou=config.ai.yolo_iou,
                                     imgsz=config.ai.yolo_imgsz,
                                     verbose=False
@@ -1200,7 +1183,7 @@ async def api_unlock_target():
 async def api_recenter_gimbal():
     gimbal_ctrl.set_manual_angles(90.0, 45.0)
     if esp32_bridge.servo_connected:
-        esp32_bridge.send_servo_command(90.0, threat_level="LOW")
+        esp32_bridge.send_servo_command(90.0, threat_level="LOW", force=True)
     return {"status": "SUCCESS", "pan": 90.0, "tilt": 45.0}
 
 
