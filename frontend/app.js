@@ -824,7 +824,7 @@ window.cycleAiSensitivity = function() {
   fetch(`${apiBase}/api/ai/set_sensitivity?conf=${current.conf}`, { method: 'POST' })
     .then(r => r.json())
     .then(d => {
-      const btn = document.getElementById('btn-conf-top');
+      const btn = document.getElementById('btn-conf-bottom');
       if (btn) {
         btn.innerText = current.label;
       }
@@ -840,12 +840,10 @@ window.toggleGimbalMode = function() {
   fetch(`${apiBase}/api/gimbal/toggle_mode`, { method: 'POST' })
     .then(r => r.json())
     .then(d => {
-      const btn = document.getElementById('btn-mode-top');
+      const btn = document.getElementById('btn-mode-bottom');
       if (btn) {
         const isCam = d.mode === 'CAMERA_MOUNTED';
-        btn.innerText = isCam ? '🔭 MODE: AUTO-LOCK (CAM)' : '🎯 MODE: POINTER (FIXED)';
-        btn.style.background = isCam ? '#065f46' : '#854d0e';
-        btn.style.borderColor = isCam ? '#34d399' : '#facc15';
+        btn.innerText = isCam ? '🔭 AUTO-LOCK (CAM)' : '🎯 POINTER (FIXED)';
       }
       if (window.smartShield) {
         window.smartShield.addEventLog(`🔭 Gimbal tracking mode set to: ${d.mode}`);

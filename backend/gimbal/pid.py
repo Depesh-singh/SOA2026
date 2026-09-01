@@ -27,7 +27,7 @@ class PIDGimbalController:
         # Tracking Mode: "CAMERA_MOUNTED" (closed-loop auto-centering) or "TURRET_POINTER" (absolute mapping)
         self.mode: str = "CAMERA_MOUNTED"
         self.auto_track_enabled: bool = True
-        self.invert_pan: bool = getattr(cfg, "invert_pan", False)
+        self.invert_pan: bool = getattr(cfg, "invert_pan", True)
 
         # Target Lock State
         self.locked_track_id: Optional[int] = None

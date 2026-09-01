@@ -75,7 +75,7 @@ class GimbalConfig(BaseModel):
     # ESP32 MG996R Servo Tracking
     servo_enabled: bool = os.getenv("SMART_SHIELD_SERVO_ENABLED", "true").lower() in ("true", "1", "yes")
     servo_update_hz: int = 10  # Command send rate to ESP32 (10 = every 100ms)
-    invert_pan: bool = False   # Standard direct optical mapping (Right in frame -> Pan > 90 deg)
+    invert_pan: bool = True    # Reversed optical mapping so servo follows drone direction
 
 class CyberRFConfig(BaseModel):
     baseline_noise_floor_dbm: float = -88.5

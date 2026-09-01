@@ -134,16 +134,6 @@
           <button class="btn-vision-mode" id="mode-optical" onclick="setVisionMode('DAY_OPTICAL')">DAY OPTICAL</button>
         </div>
 
-        <!-- Dedicated Hardware Gimbal & Servo Toolbar -->
-        <div style="display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap;">
-          <button class="btn-source-ctrl btn-usb-act" id="btn-switch-usb1-top" onclick="switchVideoSource('1')" title="Switch to External USB Camera">📷 USB (EXT)</button>
-          <button class="btn-source-ctrl btn-cam-act" id="btn-switch-usb0-top" onclick="switchVideoSource('0')" title="Switch to Built-in Laptop Webcam">📷 WEBCAM</button>
-          <button class="btn-source-ctrl" id="btn-conf-top" style="background: #b45309; border: 1px solid #f59e0b; color: #ffffff; font-weight: bold; font-size: 11px; padding: 4px 9px; cursor: pointer; border-radius: 4px;" onclick="cycleAiSensitivity()" title="Cycle AI Detection Sensitivity Threshold">🎯 SENSITIVITY: 0.42</button>
-          <button class="btn-source-ctrl" id="btn-mode-top" style="background: #065f46; border: 1px solid #34d399; color: #ffffff; font-weight: bold; font-size: 11px; padding: 4px 9px; cursor: pointer; border-radius: 4px;" onclick="toggleGimbalMode()" title="Toggle Camera-Mounted Active Lock vs Stationary Pointer">🔭 MODE: AUTO-LOCK (CAM)</button>
-          <button class="btn-source-ctrl" style="background: #0284c7; border: 1px solid #38bdf8; color: #ffffff; font-weight: bold; font-size: 11px; padding: 4px 9px; cursor: pointer; border-radius: 4px;" onclick="recenterServo()" title="Center Servo to 90 degrees">🎯 RECENTER (90°)</button>
-          <button class="btn-source-ctrl" id="btn-invert-top" style="background: #7c3aed; border: 1px solid #c084fc; color: #ffffff; font-weight: bold; font-size: 11px; padding: 4px 9px; cursor: pointer; border-radius: 4px;" onclick="toggleInvertServo()" title="Click to reverse rotation direction">🔄 INVERT (NORMAL)</button>
-          <span class="pill-mil" id="servo-status-badge-top" style="background: #14532d; color: #4ade80; border: 1px solid #22c55e; font-weight: bold; font-size: 11px; padding: 4px 8px;">🎯 SERVO: 90.0°</span>
-        </div>
       </div>
 
       <div class="optical-feed-container">
@@ -340,8 +330,10 @@
             📷 WEBCAM (INT)
           </button>
           <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB CAMERA</span>
-          <button class="btn-source-ctrl" style="background: #1e293b; border: 1px solid #38bdf888; color: #38bdf8; font-size: 11px; padding: 4px 8px;" onclick="recenterServo()">🎯 RECENTER</button>
-          <button class="btn-source-ctrl" id="btn-invert-bottom" style="background: #1e293b; border: 1px solid #a855f788; color: #c084fc; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertServo()">🔄 INVERT (NORMAL)</button>
+          <button class="btn-source-ctrl" id="btn-conf-bottom" style="background: #1e293b; border: 1px solid #f59e0b88; color: #f59e0b; font-size: 11px; padding: 4px 8px;" onclick="cycleAiSensitivity()" title="Cycle AI Detection Sensitivity Threshold">🎯 SENSITIVITY: 0.42</button>
+          <button class="btn-source-ctrl" id="btn-mode-bottom" style="background: #1e293b; border: 1px solid #10b98188; color: #34d399; font-size: 11px; padding: 4px 8px;" onclick="toggleGimbalMode()" title="Toggle Camera-Mounted vs Fixed Turret">🔭 AUTO-LOCK (CAM)</button>
+          <button class="btn-source-ctrl" style="background: #1e293b; border: 1px solid #38bdf888; color: #38bdf8; font-size: 11px; padding: 4px 8px;" onclick="recenterServo()">🎯 RECENTER (90°)</button>
+          <button class="btn-source-ctrl" id="btn-invert-bottom" style="background: #1e293b; border: 1px solid #a855f788; color: #c084fc; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertServo()">🔄 INVERT (REVERSED)</button>
           <span class="pill-mil" id="servo-status-badge" style="background: #1a3a1a; color: #00ff88; border: 1px solid #00ff8855; margin-left: 4px;">🎯 SERVO: IDLE 90.0°</span>
         </div>
       </div>
