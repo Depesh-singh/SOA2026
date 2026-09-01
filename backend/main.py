@@ -731,35 +731,19 @@ class AIPipelineWorker:
                                     verbose=False
                                 )
 
-                        # If primary model didn't detect, fallback to secondary universal model
+                        # If primary model didn't detect, fallback to secondary universal model with conservative threshold
                         if (results[0].boxes is None or len(results[0].boxes) == 0) and secondary_yolo_model is not None:
                             try:
                                 sec_results = secondary_yolo_model.predict(
                                     frame,
                                     device=self.device,
-                                    conf=config.ai.yolo_confidence,
+                                    conf=max(0.40, config.ai.yolo_confidence),
                                     iou=config.ai.yolo_iou,
                                     imgsz=config.ai.yolo_imgsz,
                                     verbose=False
                                 )
                                 if sec_results[0].boxes is not None and len(sec_results[0].boxes) > 0:
                                     results = sec_results
-                            except Exception:
-                                pass
-
-                        # If still no detections, fallback to tertiary military detector (Mavic, Shahed, MQ-9, etc.)
-                        if (results[0].boxes is None or len(results[0].boxes) == 0) and military_yolo_model is not None:
-                            try:
-                                mil_results = military_yolo_model.predict(
-                                    frame,
-                                    device=self.device,
-                                    conf=config.ai.yolo_confidence,
-                                    iou=config.ai.yolo_iou,
-                                    imgsz=config.ai.yolo_imgsz,
-                                    verbose=False
-                                )
-                                if mil_results[0].boxes is not None and len(mil_results[0].boxes) > 0:
-                                    results = mil_results
                             except Exception:
                                 pass
 
@@ -783,6 +767,18 @@ class AIPipelineWorker:
 
                             for box, score, tid, cls_name in zip(boxes, confs, track_ids, class_names):
                                 x1, y1, x2, y2 = map(int, box)
+                                bw = x2 - x1
+                                bh = y2 - y1
+
+                                # Anti-False Positive Filters (Ignore full-screen background or extreme thin lines)
+                                if bw < 18 or bh < 18:
+                                    continue
+                                if (bw * bh) > (0.55 * w * h):
+                                    continue
+                                aspect = bw / max(1.0, bh)
+                                if aspect < 0.25 or aspect > 4.0:
+                                    continue
+
                                 cx = (x1 + x2) / 2.0
                                 cy = (y1 + y2) / 2.0
                                 active_track_ids.append(tid)

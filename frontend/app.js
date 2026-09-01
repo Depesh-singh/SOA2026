@@ -812,9 +812,9 @@ window.toggleInvertServo = function() {
 
 window.cycleAiSensitivity = function() {
   const levels = [
-    { conf: 0.28, label: '🎯 SENSITIVITY: 0.28 (BALANCED)' },
-    { conf: 0.18, label: '🔥 SENSITIVITY: 0.18 (MAX SENSITIVE)' },
-    { conf: 0.45, label: '🛡️ SENSITIVITY: 0.45 (HIGH CONF)' }
+    { conf: 0.42, label: '🎯 SENSITIVITY: 0.42 (CLEAN / BALANCED)' },
+    { conf: 0.55, label: '🛡️ SENSITIVITY: 0.55 (STRICT / NO FALSE ALARMS)' },
+    { conf: 0.30, label: '🔥 SENSITIVITY: 0.30 (HIGH SENSITIVITY)' }
   ];
   if (window._sensIdx === undefined) window._sensIdx = 0;
   window._sensIdx = (window._sensIdx + 1) % levels.length;
