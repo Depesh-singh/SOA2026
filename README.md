@@ -42,8 +42,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/Depesh-singh/SOA2026.git
-cd SOA2026
+git clone https://github.com/Depesh-singh/VayuNetra.git
+cd VayuNetra
 
 # Install dependencies
 pip install fastapi uvicorn opencv-python ultralytics numpy torch torchvision websockets
