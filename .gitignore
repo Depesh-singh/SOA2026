@@ -46,11 +46,24 @@ outputs/logs/events.jsonl
 *.log
 
 # Large local video uploads/test recordings
-uploads/*.mp4
-uploads/*.avi
-uploads/*.mov
-uploads/*.mkv
-uploads/*.webm
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+uploads/
+
+# Personal / scratch files
+*.xlsx
+WhatsApp*
+scratch_*.jpg
+feed_snap_*.jpg
+test_*.jpg
+live_detection_check.jpg
+drone_cropped_test.jpg
+found_previous_sketch.txt
+prev_sketch.txt
+recovered_esp32_pca9685.ino
 
 # IDE / Editor files
 .vscode/
@@ -60,3 +73,4 @@ uploads/*.webm
 *~
 .DS_Store
 Thumbs.db
+

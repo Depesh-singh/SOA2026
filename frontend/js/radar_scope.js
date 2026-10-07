@@ -6,23 +6,60 @@
 
 class CinematicRadarBigBoard {
   constructor(canvasId) {
+    this.canvasId = canvasId;
     this.canvas = document.getElementById(canvasId);
-    this.ctx = this.canvas.getContext('2d');
-    this.width = this.canvas.width;
-    this.height = this.canvas.height;
+    this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    this.width = this.canvas ? this.canvas.width : 480;
+    this.height = this.canvas ? this.canvas.height : 480;
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
     this.maxRadius = (this.width / 2) - 25;
     this.sweepAngle = 0;
-    this.sweepSpeed = 0.04; // 30 RPM
+    this.sweepSpeed = 0.035; // ~30 RPM sweep at 60 FPS
     this.maxRangeMeters = 200.0;
 
     // SAM Threat Bubble Radii
     this.dewRadiusMeters = 50.0;
     this.akashSamRadiusMeters = 120.0;
+
+    // Real-Time Tracks and Sensor Data Cache
+    this.tracks = [];
+    this.primaryTrackId = null;
+    this.sensorData = null;
+
+    // Start Real-Time 60 FPS Autonomous Animation Loop
+    this.startRenderLoop();
   }
 
-  updateAndDraw(tracks, primaryTrackId) {
+  startRenderLoop() {
+    const renderFrame = () => {
+      if (!this.canvas) {
+        this.canvas = document.getElementById(this.canvasId);
+        if (this.canvas) {
+          this.ctx = this.canvas.getContext('2d');
+          this.width = this.canvas.width || 480;
+          this.height = this.canvas.height || 480;
+          this.centerX = this.width / 2;
+          this.centerY = this.height / 2;
+          this.maxRadius = (this.width / 2) - 25;
+        }
+      }
+      this.render();
+      requestAnimationFrame(renderFrame);
+    };
+    requestAnimationFrame(renderFrame);
+  }
+
+  updateAndDraw(tracks, primaryTrackId, sensorData) {
+    this.tracks = tracks || [];
+    this.primaryTrackId = primaryTrackId;
+    if (sensorData !== undefined) {
+      this.sensorData = sensorData;
+    }
+  }
+
+  render() {
+    if (!this.ctx) return;
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
 
@@ -42,12 +79,15 @@ class CinematicRadarBigBoard {
     this.drawSweepBeam(ctx);
 
     // 6. Dynamic Intercept Splines & Predicted Trajectories
-    this.drawInterceptTrajectories(ctx, tracks, primaryTrackId);
+    this.drawInterceptTrajectories(ctx, this.tracks, this.primaryTrackId);
 
     // 7. Tactical Air Tracks (MIL-STD-2525D Symbology)
-    this.drawAirTracks(ctx, tracks, primaryTrackId);
+    this.drawAirTracks(ctx, this.tracks, this.primaryTrackId);
 
-    // Advance sweep angle
+    // 8. Hardware Radar / Ultrasonic Sensor Echo Blip
+    this.drawHardwareSensorBlips(ctx);
+
+    // Advance sweep angle continuously
     this.sweepAngle += this.sweepSpeed;
     if (this.sweepAngle >= Math.PI * 2) {
       this.sweepAngle -= Math.PI * 2;
@@ -89,7 +129,7 @@ class CinematicRadarBigBoard {
       // Range Label
       ctx.fillStyle = 'rgba(0, 255, 102, 0.7)';
       ctx.font = '9px "Share Tech Mono"';
-      ctx.fillText(`${rng}m`, this.centerX + 5, this.centerY - r + 11);
+      ctx.fillText(`${rng}cm`, this.centerX + 5, this.centerY - r + 11);
     });
     ctx.restore();
   }
@@ -298,6 +338,40 @@ class CinematicRadarBigBoard {
 
       ctx.restore();
     });
+  }
+
+  drawHardwareSensorBlips(ctx) {
+    if (!this.sensorData) return;
+    const raw = this.sensorData.radar_raw;
+    const dist = this.sensorData.radar_range || (raw ? (raw.distance_m || raw.range_m) : null);
+    const pan = raw ? (raw.servo_pan !== undefined ? raw.servo_pan : 90.0) : 90.0;
+
+    if (dist && dist > 0 && dist <= this.maxRangeMeters) {
+      const azDeg = pan - 90.0;
+      const azRad = (azDeg * Math.PI) / 180.0;
+      const scale = this.maxRadius / this.maxRangeMeters;
+      const px = this.centerX + Math.sin(azRad) * (dist * scale);
+      const py = this.centerY - Math.cos(azRad) * (dist * scale);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 255, 170, 0.85)';
+      ctx.shadowColor = '#00ffaa';
+      ctx.shadowBlur = 12;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(px, py, 13, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 255, 170, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = 'bold 9px "Share Tech Mono"';
+      ctx.fillStyle = '#00ffaa';
+      ctx.fillText(`RF/ECHO ${Math.round(dist)}cm`, px + 12, py - 4);
+      ctx.restore();
+    }
   }
 }
 

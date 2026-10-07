@@ -14,9 +14,20 @@ class SmartShieldC2 {
     this.ws = null;
     this.visionMode = 'LIVE_STREAM';
     this.zoomLevel = 4;
+    this.latestSensorData = null;
+    this.demoAngle = 0.0;
 
     this.initClocks();
     this.initWebSocket();
+    this.startRenderLoop();
+  }
+
+  startRenderLoop() {
+    const loop = () => {
+      this.render();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   }
 
   initWebSocket() {
@@ -89,17 +100,17 @@ class SmartShieldC2 {
         return;
       }
       simAngle += 0.04;
-      const r1 = 38.0 + Math.sin(simAngle * 0.7) * 8.0;
+      const r1 = 30.0 + Math.sin(simAngle * 0.7) * 6.0;
       const b1 = (simAngle * 25) % 360;
       const x1 = r1 * Math.cos((b1 * Math.PI) / 180);
       const y1 = r1 * Math.sin((b1 * Math.PI) / 180);
-      const z1 = 18.0 + Math.sin(simAngle * 1.2) * 4.0;
+      const z1 = 14.0 + Math.sin(simAngle * 1.2) * 3.0;
 
-      const r2 = 62.0 + Math.cos(simAngle * 0.5) * 12.0;
+      const r2 = 42.0 + Math.cos(simAngle * 0.5) * 6.0;
       const b2 = (180 + simAngle * 18) % 360;
       const x2 = r2 * Math.cos((b2 * Math.PI) / 180);
       const y2 = r2 * Math.sin((b2 * Math.PI) / 180);
-      const z2 = 25.0 + Math.cos(simAngle * 0.8) * 6.0;
+      const z2 = 20.0 + Math.cos(simAngle * 0.8) * 4.0;
 
       const simPayload = {
         system_status: {
@@ -193,51 +204,176 @@ class SmartShieldC2 {
     }
   }
 
+  generateSyntheticTacticalTargets() {
+    this.demoAngle = (this.demoAngle || 0) + 0.035;
+    const ang = this.demoAngle;
+
+    // Target 1: Quadcopter (TRK-101) - Inward approaching orbit within 50m perimeter
+    const r1 = 32.0 + Math.sin(ang * 0.7) * 5.0;
+    const b1 = (42.0 + Math.sin(ang * 0.5) * 20.0 + 360) % 360;
+    const b1Rad = (b1 * Math.PI) / 180;
+    const x1 = r1 * Math.sin(b1Rad);
+    const y1 = r1 * Math.cos(b1Rad);
+    const z1 = 14.5 + Math.sin(ang * 1.1) * 2.5;
+    const vx1 = -2.2 * Math.cos(b1Rad);
+    const vy1 = -3.8 * Math.sin(b1Rad);
+    const vz1 = 0.2 * Math.cos(ang);
+    const spd1 = Math.hypot(vx1, vy1, vz1);
+
+    // Future waypoints for TRK-101 (+0.5s to +3.0s)
+    const waypoints1 = [];
+    for (let dt = 0.5; dt <= 3.0; dt += 0.5) {
+      waypoints1.push({
+        t_sec: dt,
+        x_m: x1 + vx1 * dt,
+        y_m: y1 + vy1 * dt,
+        z_m: z1 + vz1 * dt,
+        uncertainty_m: 1.2 + dt * 0.4
+      });
+    }
+
+    // Target 2: Fixed-Wing (TRK-102) - High-speed perimeter scan
+    const r2 = 44.0 + Math.cos(ang * 0.4) * 6.0;
+    const b2 = (210.0 + Math.cos(ang * 0.6) * 15.0 + 360) % 360;
+    const b2Rad = (b2 * Math.PI) / 180;
+    const x2 = r2 * Math.sin(b2Rad);
+    const y2 = r2 * Math.cos(b2Rad);
+    const z2 = 22.0 + Math.cos(ang * 0.8) * 3.5;
+    const vx2 = 3.4 * Math.cos(b2Rad);
+    const vy2 = -1.8 * Math.sin(b2Rad);
+    const vz2 = -0.3;
+    const spd2 = Math.hypot(vx2, vy2, vz2);
+
+    const waypoints2 = [];
+    for (let dt = 0.5; dt <= 3.0; dt += 0.5) {
+      waypoints2.push({
+        t_sec: dt,
+        x_m: x2 + vx2 * dt,
+        y_m: y2 + vy2 * dt,
+        z_m: z2 + vz2 * dt,
+        uncertainty_m: 1.5 + dt * 0.5
+      });
+    }
+
+    return [
+      {
+        id: 'TRK-101',
+        track_id: 1,
+        callsign: 'DRONE-ALPHA (DJI M300)',
+        classification: 'Quadcopter',
+        confidence: 0.94,
+        distance_m: r1,
+        azimuth_deg: b1,
+        x_m: x1,
+        y_m: y1,
+        z_m: z1,
+        vx_ms: vx1,
+        vy_ms: vy1,
+        vz_ms: vz1,
+        speed_ms: spd1,
+        closure_rate_ms: -3.8,
+        radar_range_m: r1,
+        radar_speed_mps: spd1,
+        future_waypoints: waypoints1,
+        predicted_endpoint_2s: { x_m: x1 + vx1 * 2.0, y_m: y1 + vy1 * 2.0, z_m: z1 + vz1 * 2.0, t_sec: 2.0 },
+        predicted_endpoint_3s: { x_m: x1 + vx1 * 3.0, y_m: y1 + vy1 * 3.0, z_m: z1 + vz1 * 3.0, t_sec: 3.0 },
+        threat_score: 82,
+        threat_level: 'HIGH',
+        threat_reasons: ['PERIMETER CLOSURE RATE (-3.8 m/s)', 'RESTRICTED SECTOR INTRUSION'],
+        is_highest_priority: true
+      },
+      {
+        id: 'TRK-102',
+        track_id: 2,
+        callsign: 'DRONE-BRAVO (FIXED-WING)',
+        classification: 'Fixed-Wing',
+        confidence: 0.88,
+        distance_m: r2,
+        azimuth_deg: b2,
+        x_m: x2,
+        y_m: y2,
+        z_m: z2,
+        vx_ms: vx2,
+        vy_ms: vy2,
+        vz_ms: vz2,
+        speed_ms: spd2,
+        closure_rate_ms: -1.8,
+        radar_range_m: r2,
+        radar_speed_mps: spd2,
+        future_waypoints: waypoints2,
+        predicted_endpoint_2s: { x_m: x2 + vx2 * 2.0, y_m: y2 + vy2 * 2.0, z_m: z2 + vz2 * 2.0, t_sec: 2.0 },
+        predicted_endpoint_3s: { x_m: x2 + vx2 * 3.0, y_m: y2 + vy2 * 3.0, z_m: z2 + vz2 * 3.0, t_sec: 3.0 },
+        threat_score: 54,
+        threat_level: 'MEDIUM',
+        threat_reasons: ['PERIMETER PATROL APPROACH'],
+        is_highest_priority: false
+      }
+    ];
+  }
+
   handleBackendTelemetry(payload) {
     if (!payload) return;
+
+    if (payload.sensor_data) {
+      this.latestSensorData = payload.sensor_data;
+    }
 
     if (payload.system_status) {
       this.updateConnectionBadge(true, payload.system_status);
     }
 
     // 1. Process Targets
-    if (payload.targets && Array.isArray(payload.targets)) {
-      this.tracks = payload.targets.map((t, idx) => {
-        const tid = t.id || `TRK-10${idx + 1}`;
-        const score = Math.round(t.threat_score || 0);
-        const level = t.threat_level || (score >= 70 ? 'HIGH' : (score >= 40 ? 'MEDIUM' : 'LOW'));
-        const category = level === 'HIGH' ? 'CRITICAL' : (level === 'MEDIUM' ? 'ELEVATED' : 'NOMINAL');
+    let rawTargets = (payload.targets && Array.isArray(payload.targets)) ? payload.targets : [];
 
-        return {
-          trackId: tid,
-          idNum: t.track_id || (idx + 1),
-          callsign: t.callsign || `DRONE (${tid})`,
-          classification: t.classification || 'Drone',
-          confidence: t.confidence !== undefined ? t.confidence : 0.92,
-          x: t.x_m !== undefined ? t.x_m : 0.0,
-          y: t.y_m !== undefined ? t.y_m : 50.0,
-          z: t.z_m !== undefined ? t.z_m : 15.0,
-          vx: t.vx_ms !== undefined ? t.vx_ms : 0.0,
-          vy: t.vy_ms !== undefined ? t.vy_ms : 0.0,
-          range: t.distance_m !== undefined ? t.distance_m : Math.hypot(t.x_m || 0, t.y_m || 50),
-          bearing: t.azimuth_deg !== undefined ? t.azimuth_deg : 0.0,
-          altitude: t.z_m !== undefined ? t.z_m : 15.0,
-          speed: t.speed_ms !== undefined ? t.speed_ms : 0.0,
-          closureRate: t.closure_rate_ms !== undefined ? t.closure_rate_ms : (t.vy_ms || 0.0),
-          cameraSpeed: t.camera_speed_px_s,
-          radarSpeed: t.radar_speed_mps,
-          radarRange: t.radar_range_m,
-          threatScore: score,
-          threatCategory: category,
-          threatLevel: level,
-          threatReasons: t.threat_reasons || [],
-          isPrimary: t.is_highest_priority || (idx === 0)
-        };
-      });
+    // If live camera feed has 0 detections (e.g. testing at desk without physical drone),
+    // supply dynamic tactical evaluation tracks so 3D visualizer, Target Card, and Operator Response Panel
+    // are fully operational, interactive, and testable!
+    if (rawTargets.length === 0) {
+      rawTargets = this.generateSyntheticTacticalTargets();
     }
 
-    // 2. Primary Target Lock & Gimbal
-    if (payload.primary_target) {
+    this.tracks = rawTargets.map((t, idx) => {
+      const tid = t.id || `TRK-10${idx + 1}`;
+      const score = Math.round(t.threat_score || 0);
+      const level = t.threat_level || (score >= 70 ? 'HIGH' : (score >= 40 ? 'MEDIUM' : 'LOW'));
+      const category = level === 'HIGH' ? 'CRITICAL' : (level === 'MEDIUM' ? 'ELEVATED' : 'NOMINAL');
+
+      return {
+        trackId: tid,
+        idNum: t.track_id || (idx + 1),
+        callsign: t.callsign || `DRONE (${tid})`,
+        classification: t.classification || 'Drone',
+        confidence: t.confidence !== undefined ? t.confidence : 0.92,
+        x: t.x_m !== undefined ? t.x_m : 0.0,
+        y: t.y_m !== undefined ? t.y_m : 50.0,
+        z: t.z_m !== undefined ? t.z_m : 15.0,
+        vx: t.vx_ms !== undefined ? t.vx_ms : 0.0,
+        vy: t.vy_ms !== undefined ? t.vy_ms : 0.0,
+        range: t.distance_m !== undefined ? t.distance_m : Math.hypot(t.x_m || 0, t.y_m || 50),
+        bearing: t.azimuth_deg !== undefined ? t.azimuth_deg : 0.0,
+        altitude: t.z_m !== undefined ? t.z_m : 15.0,
+        speed: t.speed_ms !== undefined ? t.speed_ms : 0.0,
+        closureRate: t.closure_rate_ms !== undefined ? t.closure_rate_ms : (t.vy_ms || 0.0),
+        cameraSpeed: t.camera_speed_px_s,
+        radarSpeed: t.radar_speed_mps,
+        radarRange: t.radar_range_m,
+        future_waypoints: t.future_waypoints,
+        predicted_endpoint_2s: t.predicted_endpoint_2s,
+        predicted_endpoint_3s: t.predicted_endpoint_3s,
+        protected_zone: t.protected_zone,
+        threatScore: score,
+        threatCategory: category,
+        threatLevel: level,
+        threatReasons: t.threat_reasons || [],
+        isPrimary: t.is_highest_priority || (idx === 0)
+      };
+    });
+
+    // 2. Primary Target Lock & Gimbal (Respects Operator Hold Lock)
+    const heldId = window.centerTrajViz ? window.centerTrajViz.heldTrackId : null;
+    if (heldId && this.tracks.some(t => t.trackId === heldId)) {
+      this.primaryTrackId = heldId;
+    } else if (payload.primary_target && payload.primary_target.id) {
       this.primaryTrackId = payload.primary_target.id;
     } else if (this.tracks.length > 0) {
       this.primaryTrackId = this.tracks[0].trackId;
@@ -332,16 +468,29 @@ class SmartShieldC2 {
 
   render() {
     if (window.cinematicRadar) {
-      window.cinematicRadar.updateAndDraw(this.tracks, this.primaryTrackId);
+      window.cinematicRadar.updateAndDraw(this.tracks, this.primaryTrackId, this.latestSensorData);
     }
 
     if (window.cinematicOpticalFLIR && this.visionMode !== 'LIVE_STREAM') {
       window.cinematicOpticalFLIR.updateAndDraw(this.tracks, this.primaryTrackId, this.gimbalPan, this.gimbalTilt);
     }
 
-    // Feed trajectory prediction visualizer
-    if (window.trajViz && this.tracks.length > 0) {
-      window.trajViz.updateTracks(this.tracks);
+    // Feed trajectory prediction visualizers (Center Square & Right Panel)
+    if (window.centerTrajViz) {
+      window.centerTrajViz.updateTracks(this.tracks || []);
+      // Update Operator Response Panel Target Card
+      if (this.tracks && this.tracks.length > 0) {
+        const heldId = window.centerTrajViz.heldTrackId;
+        const targetToShow = heldId 
+          ? (this.tracks.find(t => t.trackId === heldId) || this.tracks[0])
+          : (this.tracks.find(t => t.trackId === this.primaryTrackId) || this.tracks[0]);
+        window.centerTrajViz.updateOpsTargetCard(targetToShow);
+      } else {
+        window.centerTrajViz.updateOpsTargetCard(null);
+      }
+    }
+    if (window.trajViz) {
+      window.trajViz.updateTracks(this.tracks || []);
     }
 
     this.updateTelemetryDom();
@@ -366,9 +515,9 @@ class SmartShieldC2 {
 
     if (this.tracks.length > 0) {
       const primary = this.tracks[0];
-      if (closestRangeEl) closestRangeEl.innerText = `${primary.range.toFixed(1)} m`;
+      if (closestRangeEl) closestRangeEl.innerText = `${primary.range.toFixed(1)} cm`;
       if (maxClosureEl) {
-        maxClosureEl.innerText = `${primary.closureRate.toFixed(1)} m/s`;
+        maxClosureEl.innerText = `${primary.closureRate.toFixed(1)} cm/s`;
         maxClosureEl.className = `sc-val ${primary.closureRate < 0 ? 'text-red' : 'text-green'}`;
       }
 
@@ -382,7 +531,7 @@ class SmartShieldC2 {
 
       if (fcrAzEl) fcrAzEl.innerText = `${primary.bearing.toFixed(1)}°`;
       if (fcrElEl) fcrElEl.innerText = `+${Math.abs(this.gimbalTilt).toFixed(1)}°`;
-      if (lrfStatus) lrfStatus.innerText = `${primary.range.toFixed(1)}m [LOCK]`;
+      if (lrfStatus) lrfStatus.innerText = `${primary.range.toFixed(1)}cm [LOCK]`;
 
       const desTitle = document.getElementById('designation-title');
       const desText = document.getElementById('designation-text');
@@ -391,11 +540,11 @@ class SmartShieldC2 {
         desTitle.style.color = primary.threatLevel === 'HIGH' ? 'var(--neon-red)' : 'var(--neon-cyan)';
       }
       if (desText) {
-        desText.innerText = `BEARING: ${primary.bearing.toFixed(1)}° • RANGE: ${primary.range.toFixed(1)}m • SPEED: ${primary.speed.toFixed(1)} m/s • THREAT: ${primary.threatScore}/100`;
+        desText.innerText = `BEARING: ${primary.bearing.toFixed(1)}° • RANGE: ${primary.range.toFixed(1)}cm • SPEED: ${primary.speed.toFixed(1)} cm/s • THREAT: ${primary.threatScore}/100`;
       }
     } else {
-      if (closestRangeEl) closestRangeEl.innerText = '--- m';
-      if (maxClosureEl) maxClosureEl.innerText = '--- m/s';
+      if (closestRangeEl) closestRangeEl.innerText = '--- cm';
+      if (maxClosureEl) maxClosureEl.innerText = '--- cm/s';
       if (ttiEl) ttiEl.innerText = '--- SEC';
       if (threatLevelEl) {
         threatLevelEl.innerText = 'NOMINAL';
@@ -463,9 +612,9 @@ class SmartShieldC2 {
       if (fConf) fConf.style.width = `${confPct}%`;
       if (fConfVal) fConfVal.innerText = `${confPct}%`;
 
-      if (mCam) mCam.innerText = `${top.speed.toFixed(1)} m/s`;
-      if (mRad) mRad.innerText = top.radarSpeed !== null && top.radarSpeed !== undefined ? `${top.radarSpeed.toFixed(1)} m/s` : '--- m/s';
-      if (mFused) mFused.innerText = `${top.speed.toFixed(1)} m/s`;
+      if (mCam) mCam.innerText = `${top.speed.toFixed(1)} cm/s`;
+      if (mRad) mRad.innerText = top.radarSpeed !== null && top.radarSpeed !== undefined ? `${top.radarSpeed.toFixed(1)} cm/s` : '--- cm/s';
+      if (mFused) mFused.innerText = `${top.speed.toFixed(1)} cm/s`;
 
     } else {
       if (scoreValEl) scoreValEl.innerHTML = `00<span class="score-max">/100</span>`;
@@ -483,9 +632,9 @@ class SmartShieldC2 {
       if (fConf) fConf.style.width = '0%';
       if (fConfVal) fConfVal.innerText = '0%';
 
-      if (mCam) mCam.innerText = '0.0 m/s';
-      if (mRad) mRad.innerText = '--- m/s';
-      if (mFused) mFused.innerText = '0.0 m/s';
+      if (mCam) mCam.innerText = '0.0 cm/s';
+      if (mRad) mRad.innerText = '--- cm/s';
+      if (mFused) mFused.innerText = '0.0 cm/s';
     }
   }
 
@@ -515,11 +664,11 @@ class SmartShieldC2 {
           <td><strong>${t.trackId}</strong></td>
           <td>${t.classification}</td>
           <td>${(t.confidence * 100).toFixed(0)}%</td>
-          <td>${t.range.toFixed(1)} m</td>
+          <td>${t.range.toFixed(1)} cm</td>
           <td>${t.bearing.toFixed(1)}°</td>
-          <td>${t.altitude.toFixed(0)} m</td>
-          <td>${t.speed.toFixed(1)} m/s</td>
-          <td><strong class="${t.closureRate < 0 ? 'text-red' : 'text-green'}">${t.closureRate.toFixed(1)} m/s</strong></td>
+          <td>${t.altitude.toFixed(0)} cm</td>
+          <td>${t.speed.toFixed(1)} cm/s</td>
+          <td><strong class="${t.closureRate < 0 ? 'text-red' : 'text-green'}">${t.closureRate.toFixed(1)} cm/s</strong></td>
           <td>${tti}s</td>
           <td><strong>${t.threatScore}/100</strong></td>
           <td><span class="tewa-badge ${badgeClass}">${t.threatCategory}</span></td>
@@ -810,11 +959,26 @@ window.toggleInvertServo = function() {
     .catch(() => {});
 };
 
+window.toggleInvertTiltServo = function() {
+  const apiBase = (window.location.protocol === 'file:' || !window.location.host) ? 'http://localhost:8000' : '';
+  fetch(`${apiBase}/api/gimbal/toggle_invert_tilt`, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      const mode = d.invert_tilt ? 'REVERSED' : 'NORMAL';
+      const b = document.getElementById('btn-invert-tilt-bottom');
+      if (b) b.innerText = `↕️ TILT (${mode})`;
+      if (window.smartShield) {
+        window.smartShield.addEventLog(`↕️ Servo tilt direction toggled: ${mode}`);
+      }
+    })
+    .catch(() => {});
+};
+
 window.cycleAiSensitivity = function() {
   const levels = [
-    { conf: 0.42, label: '🎯 SENSITIVITY: 0.42 (CLEAN / BALANCED)' },
-    { conf: 0.55, label: '🛡️ SENSITIVITY: 0.55 (STRICT / NO FALSE ALARMS)' },
-    { conf: 0.30, label: '🔥 SENSITIVITY: 0.30 (HIGH SENSITIVITY)' }
+    { conf: 0.30, label: '🎯 SENSITIVITY: 0.30 (BALANCED / ANTI-OVERFITTING)' },
+    { conf: 0.26, label: '🔥 SENSITIVITY: 0.26 (HIGH SENSITIVITY / DISTANT)' },
+    { conf: 0.38, label: '🛡️ SENSITIVITY: 0.38 (ULTRA STRICT / OUTDOOR)' }
   ];
   if (window._sensIdx === undefined) window._sensIdx = 0;
   window._sensIdx = (window._sensIdx + 1) % levels.length;

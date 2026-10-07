@@ -170,11 +170,21 @@ class CinematicOpticalFLIR {
     const zoomFactor = this.zoomLevel / 4.0; // Normalized to 4X default
 
     tracks.forEach(track => {
-      const angleAz = Math.atan2(track.x, track.y);
-      const angleEl = Math.atan2(track.z, Math.hypot(track.x, track.y));
+      // Guard: only render targets in front of camera (forward hemisphere)
+      if (track.y !== undefined && track.y <= 0) return;
+
+      const yVal = Math.max(1, track.y || track.range || 30);
+      const angleAz = Math.atan2(track.x, yVal);
+      const angleEl = Math.atan2(track.z, Math.hypot(track.x, yVal));
+
+      // Guard: skip if outside camera FOV cone
+      if (Math.abs(angleAz) > (fovRad / 2) * 1.25) return;
 
       const screenX = (this.width / 2) + (Math.tan(angleAz) / Math.tan(fovRad / 2)) * (this.width / 2) * zoomFactor;
       const screenY = (this.height / 2) - (Math.tan(angleEl) / Math.tan(fovRad / 2)) * (this.height / 2) * zoomFactor;
+
+      // Guard: strictly inside optical canvas frame
+      if (screenX < -20 || screenX > this.width + 20 || screenY < -20 || screenY > this.height + 20) return;
 
       const dist = Math.max(track.range, 15);
       const baseBoxSize = Math.max(Math.min(2400 / dist, 120), 28);

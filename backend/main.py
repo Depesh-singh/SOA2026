@@ -108,6 +108,7 @@ class ESP32SerialBridge:
         self.thread: Optional[threading.Thread] = None
         # Servo tracking state
         self.servo_pan: float = 90.0
+        self.servo_tilt: float = 90.0
         self.servo_status: str = "IDLE"
         self.servo_connected = False
         # Thread-safe command queue (outbound to ESP32)
@@ -136,46 +137,54 @@ class ESP32SerialBridge:
     def _bridge_loop(self):
         """Main serial loop: interleaves reading telemetry and writing servo commands with auto-reconnect."""
         while self.running:
+            ser = None
             try:
-                with serial.Serial(self.port, self.baudrate, timeout=0.05) as ser:
-                    self.connected = True
-                    self.servo_connected = True
-                    logger.info(f"[ESP32] Hardware Connected: {self.port} @ {self.baudrate}")
+                ser = serial.Serial(self.port, self.baudrate, timeout=0.08, write_timeout=0.2)
+                self.connected = True
+                self.servo_connected = True
+                logger.info(f"[ESP32] Hardware Connected: {self.port} @ {self.baudrate}")
 
-                    while self.running:
-                        # --- WRITE: Send any queued servo commands ---
-                        try:
-                            while not self._cmd_queue.empty():
-                                cmd = self._cmd_queue.get_nowait()
-                                ser.write(cmd.encode('utf-8'))
-                                ser.flush()
-                        except queue.Empty:
-                            pass
-                        except Exception as e_write:
-                            logger.error(f"[ESP32] Serial write error, reconnecting: {e_write}")
-                            break  # Exit inner loop to re-open serial handle cleanly
+                while self.running:
+                    # --- WRITE: Send latest queued servo command (non-blocking) ---
+                    try:
+                        latest_cmd = None
+                        while not self._cmd_queue.empty():
+                            latest_cmd = self._cmd_queue.get_nowait()
+                        if latest_cmd is not None:
+                            ser.write(latest_cmd.encode('utf-8'))
+                    except queue.Empty:
+                        pass
+                    except Exception as e_write:
+                        logger.error(f"[ESP32] Serial write error, reconnecting: {e_write}")
+                        break  # Exit inner loop to re-open serial handle cleanly
 
-                        # --- READ: Process incoming telemetry lines ---
-                        try:
-                            if ser.in_waiting > 0:
-                                raw = ser.readline()
-                                if raw:
-                                    line = raw.decode("utf-8", errors="ignore").strip()
-                                    if line:
-                                        self._parse_incoming(line)
-                        except Exception as e_read:
-                            if not self.running:
-                                break
+                    # --- READ: Process incoming telemetry lines ---
+                    try:
+                        if ser.in_waiting > 0:
+                            raw = ser.readline()
+                            if raw:
+                                line = raw.decode("utf-8", errors="ignore").strip()
+                                if line:
+                                    self._parse_incoming(line)
+                    except Exception as e_read:
+                        if not self.running:
+                            break
 
-                        # Small sleep to prevent CPU spin
-                        time.sleep(0.005)
+                    # Small sleep to prevent CPU spin
+                    time.sleep(0.01)
 
             except Exception as e:
                 self.connected = False
                 self.servo_connected = False
                 if self.running:
-                    logger.warning(f"[ESP32] Serial link offline ({e}). Reconnecting in 1.5s...")
-                    time.sleep(1.5)
+                    logger.warning(f"[ESP32] Serial link offline ({e}). Reconnecting in 2.0s...")
+                    time.sleep(2.0)
+            finally:
+                if ser is not None:
+                    try:
+                        ser.close()
+                    except Exception:
+                        pass
 
         self.connected = False
         self.servo_connected = False
@@ -191,6 +200,8 @@ class ESP32SerialBridge:
                 # Servo acknowledgment
                 if "servo_pan" in data:
                     self.servo_pan = float(data["servo_pan"])
+                if "servo_tilt" in data or "tilt" in data:
+                    self.servo_tilt = float(data.get("servo_tilt", data.get("tilt", 90.0)))
                 if "status" in data:
                     self.servo_status = str(data["status"])
 
@@ -218,15 +229,22 @@ class ESP32SerialBridge:
             except ValueError:
                 pass
 
-    def send_servo_command(self, pan_deg: float, threat_level: str = "LOW", force: bool = False):
-        """Queue a servo positioning command to ESP32 (non-blocking, rate-limited to ~10Hz)."""
+    def send_servo_command(self, pan_deg: float, tilt_deg: Optional[float] = None, threat_level: str = "LOW", force: bool = False, tracking: bool = True):
+        """Queue a dual-axis servo positioning command to ESP32 (non-blocking, rate-limited to ~15Hz)."""
         now = time.time()
         min_interval = 1.0 / max(1, config.gimbal.servo_update_hz)
         if not force and (now - self._last_cmd_time < min_interval):
             return  # Rate limit
 
         pan_deg = max(0.0, min(180.0, pan_deg))
-        cmd = json.dumps({"pan": round(pan_deg, 1), "threat": threat_level}) + "\n"
+        cmd_dict = {
+            "pan": round(pan_deg, 1),
+            "threat": threat_level,
+            "tracking": bool(tracking)
+        }
+        if tilt_deg is not None:
+            cmd_dict["tilt"] = round(max(65.0, min(115.0, float(tilt_deg))), 1)
+        cmd = json.dumps(cmd_dict) + "\n"
         try:
             # Drain older unread commands so queue always delivers the freshest position
             while not self._cmd_queue.empty():
@@ -247,6 +265,7 @@ class ESP32SerialBridge:
         """Returns current servo tracking state for telemetry."""
         return {
             "servo_pan": round(self.servo_pan, 1),
+            "servo_tilt": round(self.servo_tilt, 1),
             "servo_status": self.servo_status,
             "servo_connected": self.servo_connected
         }
@@ -361,12 +380,14 @@ class CameraStreamManager:
                         logger.info(f"[VIDEO] Opening video file: {curr_src}")
                         self.cap = cv2.VideoCapture(curr_src)
                     elif isinstance(curr_src, int):
-                        # Windows DirectShow for primary webcam
-                        self.cap = cv2.VideoCapture(curr_src, cv2.CAP_DSHOW)
+                        # Windows Media Foundation (CAP_MSMF) or default backend for clean UVC video without DSHOW buffer corruption
+                        self.cap = cv2.VideoCapture(curr_src, cv2.CAP_MSMF)
                         if not self.cap.isOpened():
                             self.cap = cv2.VideoCapture(curr_src)
                         if not self.cap.isOpened() and curr_src != 0:
-                            self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+                            self.cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
+                        if not self.cap.isOpened() and curr_src != 0:
+                            self.cap = cv2.VideoCapture(0)
                     else:
                         self.cap = cv2.VideoCapture(curr_src)
 
@@ -471,6 +492,27 @@ gimbal_ctrl = PIDGimbalController()
 rf_monitor = CyberRFMonitor()
 simulator = ScenarioSimulator()
 
+# Human / Face Suppression Cascades (prevents false positive detections on humans/people)
+try:
+    face_cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    face_cascade = cv2.CascadeClassifier(face_cascade_path)
+    if face_cascade.empty():
+        face_cascade = None
+except Exception:
+    face_cascade = None
+
+VALID_DRONE_CLASSES = {
+    "drone", "quadcopter", "fixed-wing", "uav", "multirotor",
+    "shahed_136", "shahed_238", "mq9_reaper", "dji_mavic", "mohajer_6",
+    "octocopter", "hexacopter", "fixed_wing", "aircraft", "airplane", "mavic"
+}
+
+HUMAN_DISALLOWED_CLASSES = {
+    "person", "human", "pedestrian", "people", "man", "woman", "face", "body", "head",
+    "bicycle", "car", "chair", "cell phone", "bottle", "cup", "dog", "cat",
+    "tv", "laptop", "motor", "bus", "truck", "others", "awning-tricycle", "tricycle", "van"
+}
+
 # Global YOLO model holders (Triple-Model Ensemble)
 yolo_model: Optional[YOLO] = None
 secondary_yolo_model: Optional[YOLO] = None
@@ -526,29 +568,21 @@ async def startup_event():
         except Exception as e2:
             logger.critical(f"Critical: Could not load any YOLO model: {e2}")
 
-    # Load Secondary Universal Drone Model (Internet Pretrained)
+    # Load Secondary Universal Drone Model (drone_yolo_v1.pt: quadcopter, fixed-wing)
+    # Detects ducted FPV / Cinewhoop / Avata drones that best.pt lacks
     sec_path = Path(__file__).resolve().parent.parent / "smart_shield_ai" / "models" / "drone_yolo_v1.pt"
     if sec_path.is_file():
         try:
             secondary_yolo_model = YOLO(str(sec_path)).to(device)
-            logger.info(f"Secondary Universal Drone Model loaded on {device}. Classes: {secondary_yolo_model.names}")
+            logger.info(f"Secondary Drone Model (drone_yolo_v1.pt) loaded on {device}. Classes: {secondary_yolo_model.names}")
         except Exception as e_sec:
             logger.warning(f"Could not load secondary model: {e_sec}")
             secondary_yolo_model = None
     else:
         secondary_yolo_model = None
 
-    # Load Tertiary Military Drone Model (Shahed, Mavic, MQ-9, Mohajer)
-    mil_path = Path(__file__).resolve().parent.parent / "smart_shield_ai" / "models" / "best_military_detector.pt"
-    if mil_path.is_file():
-        try:
-            military_yolo_model = YOLO(str(mil_path)).to(device)
-            logger.info(f"Tertiary Military Drone Model loaded on {device}. Classes: {military_yolo_model.names}")
-        except Exception as e_mil:
-            logger.warning(f"Could not load military model: {e_mil}")
-            military_yolo_model = None
-    else:
-        military_yolo_model = None
+    # Military model disabled: produces false positive dji_mavic/shahed detections on indoor wall/ceiling/furniture
+    military_yolo_model = None
 
     # 3. Start Camera Capture Thread
     cam_stream.start()
@@ -626,13 +660,60 @@ def draw_dashboard_hud(
     radar_speed: Optional[float] = None,
     radar_range: Optional[float] = None,
     radar_connected: bool = False,
-    high_threat: bool = False
+    high_threat: bool = False,
+    primary_target: Optional[dict] = None
 ):
-    """Clean video feed: keep center optical boresight crosshair without cluttering top box."""
+    """Draw tactical HUD with Center Target Alignment Box ('Invisible Square' visualizer)."""
     h, w = frame.shape[:2]
-    # Subtle Center Boresight Optical Crosshairs
     cx, cy = w // 2, h // 2
-    cv2.drawMarker(frame, (cx, cy), (0, 240, 255), markerType=cv2.MARKER_CROSS, markerSize=18, thickness=1)
+
+    # Optical Alignment Square: 120px wide x 100px tall
+    bw, bh = 120, 100
+    x1, y1 = cx - bw // 2, cy - bh // 2
+    x2, y2 = cx + bw // 2, cy + bh // 2
+
+    # Check if target is inside the square
+    in_square = False
+    tx, ty = None, None
+    if primary_target and "center_u" in primary_target:
+        tx = int(primary_target["center_u"])
+        ty = int(primary_target.get("center_v", cy))
+        if x1 <= tx <= x2 and y1 <= ty <= y2:
+            in_square = True
+
+    # Color scheme: Bright Green if locked inside square, Amber/Cyan if tracking
+    color = (0, 255, 0) if in_square else (0, 220, 255)
+    corner_len = 16
+    thick = 2 if in_square else 1
+
+    # Draw 4 Tactical Corner Brackets for the center square
+    cv2.line(frame, (x1, y1), (x1 + corner_len, y1), color, thick)
+    cv2.line(frame, (x1, y1), (x1, y1 + corner_len), color, thick)
+    cv2.line(frame, (x2, y1), (x2 - corner_len, y1), color, thick)
+    cv2.line(frame, (x2, y1), (x2, y1 + corner_len), color, thick)
+    cv2.line(frame, (x1, y2), (x1 + corner_len, y2), color, thick)
+    cv2.line(frame, (x1, y2), (x1, y2 - corner_len), color, thick)
+    cv2.line(frame, (x2, y2), (x2 - corner_len, y2), color, thick)
+    cv2.line(frame, (x2, y2), (x2, y2 - corner_len), color, thick)
+
+    # Center Boresight Crosshair
+    cv2.drawMarker(frame, (cx, cy), color, markerType=cv2.MARKER_CROSS, markerSize=14, thickness=1)
+
+    # Status Label on Center Square
+    status_txt = "[ TARGET LOCKED IN ZONE ]" if in_square else "[ OPTICAL TRACK ZONE ]"
+    cv2.putText(frame, status_txt, (x1 - 10, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.40, color, 1, cv2.LINE_AA)
+
+    # If target is outside the square, draw direction guide towards square
+    if primary_target and tx is not None and not in_square:
+        cv2.line(frame, (tx, ty), (cx, cy), (0, 160, 255), 1, cv2.LINE_AA)
+        cues = []
+        if tx < x1: cues.append("PAN LEFT")
+        elif tx > x2: cues.append("PAN RIGHT")
+        if ty < y1: cues.append("TILT UP")
+        elif ty > y2: cues.append("TILT DOWN")
+        if cues:
+            cue_txt = " | ".join(cues)
+            cv2.putText(frame, f">> {cue_txt} >>", (x1 - 10, y2 + 18), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 180, 255), 1, cv2.LINE_AA)
 
 
 # ============================================================================
@@ -646,6 +727,7 @@ class AIPipelineWorker:
         self.thread: Optional[threading.Thread] = None
         self.live_fps = 30.0
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.track_hit_counts: Dict[int, int] = {}
 
     def start(self):
         if self.running:
@@ -671,6 +753,8 @@ class AIPipelineWorker:
                 # 1. Acquire Camera Frame
                 has_frame, frame = cam_stream.get_frame()
                 radar_range, radar_speed, radar_connected, raw_radar_dict = esp32_bridge.get_latest()
+                w = config.ai.camera_width
+                h = config.ai.camera_height
 
                 evaluated_targets: List[Dict[str, Any]] = []
                 active_track_ids: List[int] = []
@@ -714,19 +798,26 @@ class AIPipelineWorker:
                                     verbose=False
                                 )
 
-                        # If primary model didn't detect, fallback to secondary universal model
-                        if (results[0].boxes is None or len(results[0].boxes) == 0) and secondary_yolo_model is not None:
+                        # Clean Model Inference: Primary YOLO (best.pt)
+                        has_boxes = (results[0].boxes is not None and len(results[0].boxes) > 0)
+                        max_conf = float(results[0].boxes.conf.max()) if has_boxes else 0.0
+
+                        # Clean Secondary Fallback (drone_yolo_v1.pt for ducted / FPV drones)
+                        # Only runs if primary (best.pt) produced 0 detections, with safe conf=0.38 threshold
+                        if not has_boxes and secondary_yolo_model is not None:
                             try:
+                                sec_conf = max(0.38, config.ai.yolo_confidence)
                                 sec_results = secondary_yolo_model.predict(
                                     frame,
                                     device=self.device,
-                                    conf=config.ai.yolo_confidence,
+                                    conf=sec_conf,
                                     iou=config.ai.yolo_iou,
                                     imgsz=config.ai.yolo_imgsz,
                                     verbose=False
                                 )
                                 if sec_results[0].boxes is not None and len(sec_results[0].boxes) > 0:
                                     results = sec_results
+                                    has_boxes = True
                             except Exception:
                                 pass
 
@@ -748,18 +839,83 @@ class AIPipelineWorker:
                             else:
                                 class_names = ["drone"] * len(boxes)
 
+                            # Detect human faces in frame to suppress false detections on humans/people
+                            detected_faces = []
+                            if face_cascade is not None and frame is not None:
+                                try:
+                                    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                                    faces = face_cascade.detectMultiScale(
+                                        gray_frame,
+                                        scaleFactor=1.2,
+                                        minNeighbors=4,
+                                        minSize=(30, 30)
+                                    )
+                                    if len(faces) > 0:
+                                        detected_faces = faces
+                                except Exception:
+                                    pass
+
+                            seen_candidate_tids = set()
                             for box, score, tid, cls_name in zip(boxes, confs, track_ids, class_names):
+                                if float(score) < config.ai.yolo_confidence:
+                                    continue
                                 x1, y1, x2, y2 = map(int, box)
                                 bw = x2 - x1
                                 bh = y2 - y1
 
-                                # Anti-False Positive Filters (Ignore full-screen background or extreme thin lines)
-                                if bw < 18 or bh < 18:
+                                # 1. Strict Class Name Filter (Whitelist drones, Blacklist humans/objects)
+                                cls_name_str = str(cls_name).strip().lower()
+                                if cls_name_str in HUMAN_DISALLOWED_CLASSES:
                                     continue
-                                if (bw * bh) > (0.55 * w * h):
+                                if any(hw in cls_name_str for hw in ("person", "human", "pedestrian", "people", "man", "woman", "face", "body")):
                                     continue
-                                aspect = bw / max(1.0, bh)
-                                if aspect < 0.25 or aspect > 4.0:
+                                is_drone_match = (
+                                    cls_name_str in VALID_DRONE_CLASSES or
+                                    any(kw in cls_name_str for kw in ("drone", "quadcopter", "uav", "copter", "wing", "shahed", "reaper", "mavic", "mohajer", "aircraft", "airplane"))
+                                )
+                                if not is_drone_match:
+                                    continue
+
+                                # 2. Geometric Shape & Sanity Size Filters (Reject full-room, furniture, and extreme linear/stripe artifacts)
+                                if bw < 20 or bh < 20:
+                                    continue
+                                if bw > (0.60 * w) or bh > (0.60 * h):
+                                    continue
+                                if (bw * bh) > (0.30 * w * h):
+                                    continue
+                                aspect_ratio = float(bw) / max(1.0, float(bh))
+                                if aspect_ratio < 0.35 or aspect_ratio > 3.0:
+                                    continue
+
+                                # 3. Human Face Spatial Overlap Suppression (only if box is predominantly a human face)
+                                is_human_overlap = False
+                                for (fx, fy, fw, fh) in detected_faces:
+                                    head_x1 = int(fx)
+                                    head_y1 = int(fy)
+                                    head_x2 = int(fx + fw)
+                                    head_y2 = int(fy + fh)
+
+                                    ix1 = max(x1, head_x1)
+                                    iy1 = max(y1, head_y1)
+                                    ix2 = min(x2, head_x2)
+                                    iy2 = min(y2, head_y2)
+
+                                    if ix2 > ix1 and iy2 > iy1:
+                                        inter_area = (ix2 - ix1) * (iy2 - iy1)
+                                        box_area = max(1, bw * bh)
+                                        if (inter_area / box_area) > 0.70:
+                                            is_human_overlap = True
+                                            break
+
+                                if is_human_overlap:
+                                    continue
+
+                                # 4. Multi-Frame Temporal Confirmation (Anti-Overfitting Filter)
+                                # Requires detection across at least 2 consecutive frames before confirming track.
+                                # Completely eliminates single-frame transient room blips/glitches.
+                                seen_candidate_tids.add(tid)
+                                self.track_hit_counts[tid] = min(10, self.track_hit_counts.get(tid, 0) + 1)
+                                if self.track_hit_counts[tid] < 2:
                                     continue
 
                                 cx = (x1 + x2) / 2.0
@@ -823,6 +979,11 @@ class AIPipelineWorker:
                                 end_pt = future_waypoints_3d[-1] if future_waypoints_3d else {
                                     "x_m": x_m, "y_m": y_m, "z_m": z_m, "t_sec": 3.0, "uncertainty_m": 2.0
                                 }
+                                end_pt_2s = next((wp for wp in future_waypoints_3d if abs(wp.get("t_sec", 0) - 2.0) < 0.25), None)
+                                if not end_pt_2s and len(future_waypoints_3d) >= 4:
+                                    end_pt_2s = future_waypoints_3d[3]
+                                if not end_pt_2s:
+                                    end_pt_2s = {"x_m": round(x_m + vx_ms_val * 2.0, 1), "y_m": round(y_m + vy_ms_val * 2.0, 1), "z_m": round(z_m + vz_ms_val * 2.0, 1), "t_sec": 2.0}
 
                                 # 5. Risk Assessment (smart_shield_ai.risk_engine)
                                 risk_result = risk_engine.assess(
@@ -876,6 +1037,12 @@ class AIPipelineWorker:
                                     "fused_velocity": fused_vel_res,
                                     "trajectory_prediction": traj_points,
                                     "future_waypoints": future_waypoints_3d,
+                                    "predicted_endpoint_2s": {
+                                        "x_m": end_pt_2s["x_m"],
+                                        "y_m": end_pt_2s["y_m"],
+                                        "z_m": end_pt_2s["z_m"],
+                                        "t_sec": end_pt_2s.get("t_sec", 2.0)
+                                    },
                                     "predicted_endpoint_3s": {
                                         "x_m": end_pt["x_m"],
                                         "y_m": end_pt["y_m"],
@@ -919,6 +1086,13 @@ class AIPipelineWorker:
                         if tid not in active_track_ids:
                             state_estimators.pop(tid, None)
 
+                    # Decay inactive candidate track counters to avoid memory leak and stale counts
+                    for tid_k in list(self.track_hit_counts.keys()):
+                        if tid_k not in seen_candidate_tids:
+                            self.track_hit_counts[tid_k] -= 1
+                            if self.track_hit_counts[tid_k] <= 0:
+                                del self.track_hit_counts[tid_k]
+
                 # ================================================================
                 # CASE B: CAMERA OFFLINE -> FALLBACK TO SIMULATION KINEMATICS
                 # ================================================================
@@ -955,6 +1129,11 @@ class AIPipelineWorker:
                         end_pt = future_waypoints_3d[-1] if future_waypoints_3d else {
                             "x_m": t["x_m"], "y_m": t["y_m"], "z_m": t["z_m"], "t_sec": 3.0, "uncertainty_m": 1.5
                         }
+                        end_pt_2s = next((wp for wp in future_waypoints_3d if abs(wp.get("t_sec", 0) - 2.0) < 0.25), None)
+                        if not end_pt_2s and len(future_waypoints_3d) >= 4:
+                            end_pt_2s = future_waypoints_3d[3]
+                        if not end_pt_2s:
+                            end_pt_2s = {"x_m": round(t["x_m"] + t["vx_ms"] * 2.0, 1), "y_m": round(t["y_m"] + t["vy_ms"] * 2.0, 1), "z_m": round(t["z_m"], 1), "t_sec": 2.0}
 
                         t_info = {
                             "id": t["id"],
@@ -977,6 +1156,12 @@ class AIPipelineWorker:
                             "radar_range_m": t.get("distance_m"),
                             "fused_velocity": {"fused_velocity": t["speed_ms"], "source": "simulated"},
                             "future_waypoints": future_waypoints_3d,
+                            "predicted_endpoint_2s": {
+                                "x_m": end_pt_2s["x_m"],
+                                "y_m": end_pt_2s["y_m"],
+                                "z_m": end_pt_2s["z_m"],
+                                "t_sec": end_pt_2s.get("t_sec", 2.0)
+                            },
                             "predicted_endpoint_3s": {
                                 "x_m": end_pt["x_m"],
                                 "y_m": end_pt["y_m"],
@@ -995,8 +1180,6 @@ class AIPipelineWorker:
                         }
                         evaluated_targets.append(t_info)
 
-                    cv2.putText(annotated_frame, "CAMERA INPUT: STANDBY / SIMULATION ACTIVE", (30, config.ai.camera_height // 2),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 180, 255), 2)
 
                 # Sort targets by threat score descending
                 evaluated_targets.sort(key=lambda x: x.get("threat_score", 0), reverse=True)
@@ -1016,7 +1199,8 @@ class AIPipelineWorker:
                     radar_speed=radar_speed,
                     radar_range=radar_range,
                     radar_connected=radar_connected,
-                    high_threat=has_high_threat
+                    high_threat=has_high_threat,
+                    primary_target=primary_target
                 )
 
                 # Update latest frame cache for MJPEG streamer atomically
@@ -1027,14 +1211,19 @@ class AIPipelineWorker:
                 pan_deg, tilt_deg, lock_meta = gimbal_ctrl.update_tracking(
                     targets=evaluated_targets,
                     primary_target=primary_target,
-                    frame_width=config.ai.camera_width,
-                    frame_height=config.ai.camera_height
+                    frame_width=w,
+                    frame_height=h
                 )
                 threat_for_servo = primary_target.get("threat_level", "LOW") if primary_target else "LOW"
 
                 # Send servo tracking command to ESP32 via serial bridge
                 if config.gimbal.servo_enabled and esp32_bridge.servo_connected:
-                    esp32_bridge.send_servo_command(pan_deg, threat_level=threat_for_servo)
+                    is_active = (has_frame and (frame is not None) and (primary_target is not None) and lock_meta.get("is_locked", False))
+                    if is_active:
+                        esp32_bridge.send_servo_command(pan_deg, tilt_deg=tilt_deg, threat_level=threat_for_servo, force=False, tracking=True)
+                    else:
+                        # Instant Freeze Stop: When no drone is locked or camera offline, brake pan and hold tilt at current/neutral position
+                        esp32_bridge.send_servo_command(90.0, tilt_deg=tilt_deg, threat_level="LOW", force=False, tracking=False)
 
                 # Cyber RF Spectrum Status
                 rf_status = rf_monitor.get_spectrum_scan()
@@ -1161,6 +1350,12 @@ async def api_toggle_invert():
     return {"status": "SUCCESS", "invert_pan": new_state}
 
 
+@app.post("/api/gimbal/toggle_invert_tilt")
+async def api_toggle_invert_tilt():
+    new_state = gimbal_ctrl.toggle_invert_tilt()
+    return {"status": "SUCCESS", "invert_tilt": new_state}
+
+
 @app.post("/api/gimbal/toggle_mode")
 async def api_toggle_gimbal_mode():
     new_mode = gimbal_ctrl.toggle_mode()
@@ -1181,10 +1376,20 @@ async def api_unlock_target():
 
 @app.post("/api/gimbal/recenter")
 async def api_recenter_gimbal():
-    gimbal_ctrl.set_manual_angles(90.0, 45.0)
+    gimbal_ctrl.set_manual_angles(90.0, 90.0)
     if esp32_bridge.servo_connected:
-        esp32_bridge.send_servo_command(90.0, threat_level="LOW", force=True)
-    return {"status": "SUCCESS", "pan": 90.0, "tilt": 45.0}
+        esp32_bridge.send_servo_command(90.0, tilt_deg=90.0, threat_level="LOW", force=True)
+    return {"status": "SUCCESS", "pan": 90.0, "tilt": 90.0}
+
+
+@app.post("/api/gimbal/manual")
+async def api_manual_gimbal(payload: Dict[str, float]):
+    pan = payload.get("pan", 90.0)
+    tilt = payload.get("tilt", 90.0)
+    gimbal_ctrl.set_manual_angles(pan, tilt)
+    if esp32_bridge.servo_connected:
+        esp32_bridge.send_servo_command(pan, tilt_deg=tilt, threat_level="MANUAL", force=True)
+    return {"status": "SUCCESS", "pan": pan, "tilt": tilt}
 
 
 @app.post("/api/simulation/add_intruder")
@@ -1203,6 +1408,7 @@ async def api_toggle_jamming():
 async def api_frequency_hop():
     hop_event = rf_monitor.execute_frequency_hop()
     return {"status": "SUCCESS", "hop_event": hop_event}
+
 
 
 @app.get("/api/telemetry/replay")
@@ -1230,6 +1436,25 @@ async def export_telemetry_csv():
 @app.get("/api/logs/cyber")
 async def get_cyber_logs():
     return rf_monitor.hop_history
+
+
+@app.get("/api/airspace/situation_after_2s")
+async def get_airspace_situation_after_2s():
+    """Returns the forecasted 3D tactical airspace situation 2 seconds into the future."""
+    global latest_situation_2s
+    if not latest_situation_2s:
+        return {
+            "status": "STANDBY",
+            "forecast_time_s": 2.0,
+            "total_targets": 0,
+            "any_breach": False,
+            "targets": []
+        }
+    return {
+        "status": "SUCCESS",
+        "timestamp_now": time.time(),
+        **latest_situation_2s
+    }
 
 
 # ============================================================================

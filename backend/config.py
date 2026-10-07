@@ -20,7 +20,7 @@ class AIEngineConfig(BaseModel):
     camera_height: int = 480
     camera_fps: int = 30
     meters_per_pixel: Optional[float] = None
-    yolo_confidence: float = 0.26
+    yolo_confidence: float = 0.30
     yolo_iou: float = 0.45
     yolo_imgsz: int = 640
     device: str = "cuda:0"
@@ -28,7 +28,7 @@ class AIEngineConfig(BaseModel):
     speed_smoothing: int = 5
     prediction_horizon: float = 3.0
     prediction_step: float = 0.2
-    low_confidence_threshold: float = 0.20
+    low_confidence_threshold: float = 0.22
     medium_risk_threshold: float = 40.0
     high_risk_threshold: float = 70.0
     log_dir: str = str(BASE_DIR / "outputs" / "logs")
@@ -58,10 +58,11 @@ class RadarConfig(BaseModel):
 class GimbalConfig(BaseModel):
     pan_min_deg: float = 0.0
     pan_max_deg: float = 180.0
-    tilt_min_deg: float = 15.0
-    tilt_max_deg: float = 90.0
+    tilt_min_deg: float = 65.0       # 90° - 25° = 65° (25° Up)
+    tilt_max_deg: float = 115.0      # 90° + 25° = 115° (25° Down)
     pan_center_deg: float = 90.0
-    tilt_center_deg: float = 45.0
+    tilt_center_deg: float = 90.0
+    tilt_max_offset_deg: float = 25.0 # Strict ±25° limit (50° total travel)
     
     # PID gains for visual servoing
     kp_pan: float = 0.08
@@ -74,7 +75,7 @@ class GimbalConfig(BaseModel):
 
     # ESP32 MG996R Servo Tracking
     servo_enabled: bool = os.getenv("SMART_SHIELD_SERVO_ENABLED", "true").lower() in ("true", "1", "yes")
-    servo_update_hz: int = 10  # Command send rate to ESP32 (10 = every 100ms)
+    servo_update_hz: int = 25  # Command send rate to ESP32 (25 Hz = every 40ms)
     invert_pan: bool = False   # False = drone right → servo right. Toggle with button if needed.
 
 class CyberRFConfig(BaseModel):

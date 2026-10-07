@@ -71,15 +71,21 @@ uint32_t lastUltrasonicTime = 0;
 uint32_t strobeTimer = 0;
 bool strobeState = false;
 
+// Strict Safety Limits for Pan Micro-Tilt (22-30° limit)
+#define SERVO_CENTER_DEG    90.0f
+#define MAX_OFFSET_DEG      25.0f
+#define SERVO_MIN_DEG       (SERVO_CENTER_DEG - MAX_OFFSET_DEG)  // 65.0° (HARD LIMIT)
+#define SERVO_MAX_DEG       (SERVO_CENTER_DEG + MAX_OFFSET_DEG)  // 115.0° (HARD LIMIT)
+
 // ----------------- HELPER FUNCTIONS -----------------
 
 uint16_t angleToPwm(float angleDeg) {
-  angleDeg = constrain(angleDeg, 0.0, 180.0);
+  angleDeg = constrain(angleDeg, SERVO_MIN_DEG, SERVO_MAX_DEG);
   return map((int)(angleDeg * 10), 0, 1800, SERVOMIN, SERVOMAX);
 }
 
 void setGimbalServos(float pan, float tilt) {
-  currentPanAngle = constrain(pan, 0.0, 180.0);
+  currentPanAngle = constrain(pan, SERVO_MIN_DEG, SERVO_MAX_DEG);
   currentTiltAngle = constrain(tilt, 15.0, 90.0);
   
   pwm.setPWM(SERVO_PAN_CH, 0, angleToPwm(currentPanAngle));

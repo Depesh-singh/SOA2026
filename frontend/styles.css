@@ -441,7 +441,8 @@ body.cinematic-command-center {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 420px;
+  min-height: 360px;
+  max-height: 420px;
   overflow: hidden;
 }
 
@@ -962,7 +963,7 @@ body.cinematic-command-center {
 .traj-canvas-wrap {
   position: relative;
   width: 100%;
-  height: 220px;
+  height: 340px;
   background: rgba(4, 10, 20, 0.8);
   border: 1px solid rgba(0, 240, 255, 0.1);
   border-radius: 3px;
@@ -1042,3 +1043,365 @@ body.cinematic-command-center {
   max-height: 60px;
   overflow-y: auto;
 }
+
+.leg-endpoint-2s {
+  background: #ffea00;
+  transform: rotate(45deg);
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(255, 234, 0, 0.8);
+}
+
+/* ==========================================================================
+   CENTER SQUARE TRAJECTORY PREDICTION (BELOW CAMERA VIEW)
+   ========================================================================== */
+
+.center-trajectory-card {
+  background: rgba(6, 14, 24, 0.98);
+  border-top: 1px solid var(--border-mil);
+  display: flex;
+  flex-direction: column;
+}
+
+.center-trajectory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(10, 18, 30, 0.95);
+  border-bottom: 1px solid var(--border-mil);
+}
+
+.traj-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.traj-title-group h3 {
+  font-family: var(--font-stencil);
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.center-trajectory-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 12px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Pure Square (1:1) Canvas Wrap without edge cutting */
+.center-traj-canvas-square-wrap {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  background: rgba(4, 10, 20, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.center-traj-canvas-square-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.center-traj-telemetry-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1 1 170px;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.c-telemetry-cell {
+  background: rgba(8, 16, 28, 0.85);
+  border: 1px solid var(--border-mil);
+  border-radius: 3px;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.c-telemetry-cell.cell-wide {
+  padding: 8px 10px;
+}
+
+.c-cell-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.c-cell-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .center-trajectory-body {
+    flex-direction: column;
+    align-items: center;
+  }
+  .center-traj-telemetry-side {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .c-telemetry-cell.cell-wide {
+    grid-column: span 2;
+  }
+}
+
+/* ==========================================================================
+   OPERATOR RESPONSE PANEL (Decision-Support Only)
+   ========================================================================== */
+
+.operator-response-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(10, 18, 30, 0.95);
+  border-bottom: 1px solid var(--border-mil);
+}
+
+.ops-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(6, 12, 20, 0.98);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.ops-status-badge {
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(0, 240, 255, 0.2);
+  color: #00f0ff;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+}
+
+.ops-status-badge.status-tracking {
+  background: rgba(255, 170, 0, 0.2);
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.4);
+}
+
+.ops-status-badge.status-alert {
+  background: rgba(255, 30, 56, 0.2);
+  color: #ff4444;
+  border-color: rgba(255, 30, 56, 0.4);
+}
+
+.ops-status-text {
+  color: #e2e8f0;
+  font-weight: 700;
+  flex: 1;
+  text-align: center;
+}
+
+.ops-risk-badge {
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(0, 255, 102, 0.15);
+  color: #00ff66;
+  border: 1px solid rgba(0, 255, 102, 0.3);
+  font-size: 8px;
+}
+
+.ops-risk-badge.risk-elevated {
+  background: rgba(255, 170, 0, 0.15);
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.3);
+}
+
+.ops-risk-badge.risk-critical {
+  background: rgba(255, 30, 56, 0.15);
+  color: #ff4444;
+  border-color: rgba(255, 30, 56, 0.3);
+}
+
+.ops-action-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.ops-row-secondary {
+  border-top: 1px solid rgba(100, 120, 140, 0.15);
+  padding-top: 4px;
+}
+
+.btn-ops {
+  font-family: var(--font-title);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex: 1;
+  text-align: center;
+}
+
+.btn-ops-track {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  color: #00f0ff;
+}
+.btn-ops-track:hover {
+  background: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+.btn-ops-track.active {
+  background: rgba(0, 240, 255, 0.3);
+  box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
+.btn-ops-alert {
+  background: rgba(255, 170, 0, 0.12);
+  border: 1px solid rgba(255, 170, 0, 0.4);
+  color: #ffaa00;
+}
+.btn-ops-alert:hover {
+  background: rgba(255, 170, 0, 0.3);
+  box-shadow: 0 0 10px rgba(255, 170, 0, 0.3);
+}
+
+.btn-ops-log {
+  background: rgba(100, 130, 170, 0.12);
+  border: 1px solid rgba(100, 130, 170, 0.4);
+  color: #94a3b8;
+}
+.btn-ops-log:hover {
+  background: rgba(100, 130, 170, 0.3);
+  color: #e2e8f0;
+}
+
+.btn-ops-simulate {
+  background: rgba(138, 43, 226, 0.12);
+  border: 1px solid rgba(138, 43, 226, 0.4);
+  color: #b78cff;
+}
+.btn-ops-simulate:hover {
+  background: rgba(138, 43, 226, 0.3);
+  box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+}
+
+.btn-ops-hold {
+  background: rgba(255, 200, 0, 0.12);
+  border: 1px solid rgba(255, 200, 0, 0.35);
+  color: #fcd34d;
+}
+.btn-ops-hold:hover {
+  background: rgba(255, 200, 0, 0.25);
+}
+.btn-ops-hold.active {
+  background: rgba(255, 200, 0, 0.3);
+  box-shadow: inset 0 0 8px rgba(255, 200, 0, 0.3);
+}
+
+.btn-ops-release {
+  background: rgba(0, 255, 102, 0.12);
+  border: 1px solid rgba(0, 255, 102, 0.35);
+  color: #4ade80;
+}
+.btn-ops-release:hover {
+  background: rgba(0, 255, 102, 0.25);
+}
+
+.btn-ops-camera {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+.btn-ops-camera:hover {
+  background: rgba(56, 189, 248, 0.25);
+}
+
+.btn-ops-trajectory {
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  color: #00f0ff;
+}
+.btn-ops-trajectory:hover {
+  background: rgba(0, 240, 255, 0.25);
+}
+.btn-ops-trajectory.active {
+  background: rgba(0, 240, 255, 0.3);
+  box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.3);
+}
+
+/* Target Status Card */
+.ops-target-card {
+  padding: 4px 10px 6px;
+  background: rgba(6, 12, 20, 0.98);
+  border-bottom: 1px solid var(--border-mil);
+}
+
+.ops-card-header {
+  margin-bottom: 3px;
+}
+
+.ops-card-title {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 800;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.ops-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.ops-kv {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px;
+  background: rgba(0, 10, 20, 0.6);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 2px;
+}
+
+.ops-k {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.ops-v {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #00f0ff;
+}
+

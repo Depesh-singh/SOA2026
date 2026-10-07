@@ -4,10 +4,289 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VayuNetra (वायुNetra) | AI Drone Detection &amp; Airspace Defence C2</title>
-  <link rel="stylesheet" href="styles.css?v=3.2">
+  <link rel="stylesheet" href="styles.css?v=4.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style id="operator-panel-critical-styles">
+    /* GUARANTEED TACTICAL STYLING FOR OPERATOR RESPONSE PANEL (Bypasses all browser cache) */
+    .operator-response-toolbar {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 5px !important;
+      padding: 6px 10px !important;
+      background: rgba(8, 16, 28, 0.98) !important;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.25) !important;
+      border-top: 1px solid rgba(0, 240, 255, 0.15) !important;
+      box-sizing: border-box !important;
+    }
+
+    .ops-status-banner {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 5px 10px !important;
+      background: rgba(4, 10, 18, 0.98) !important;
+      border: 1px solid rgba(0, 240, 255, 0.25) !important;
+      border-radius: 3px !important;
+      font-family: 'Share Tech Mono', monospace !important;
+      font-size: 9.5px !important;
+      transition: all 0.25s ease !important;
+      box-sizing: border-box !important;
+    }
+
+    .ops-status-badge {
+      font-weight: 800 !important;
+      padding: 3px 8px !important;
+      border-radius: 2px !important;
+      background: rgba(0, 240, 255, 0.2) !important;
+      color: #00f0ff !important;
+      border: 1px solid rgba(0, 240, 255, 0.5) !important;
+      letter-spacing: 0.5px !important;
+      white-space: nowrap !important;
+    }
+
+    .ops-status-badge.status-tracking {
+      background: rgba(255, 170, 0, 0.2) !important;
+      color: #ffaa00 !important;
+      border-color: rgba(255, 170, 0, 0.5) !important;
+    }
+
+    .ops-status-badge.status-alert {
+      background: rgba(255, 30, 56, 0.25) !important;
+      color: #ff3b30 !important;
+      border-color: rgba(255, 30, 56, 0.7) !important;
+      animation: opsAlertPulse 1s infinite alternate !important;
+    }
+
+    @keyframes opsAlertPulse {
+      from { box-shadow: 0 0 6px rgba(255, 30, 56, 0.4); }
+      to { box-shadow: 0 0 16px rgba(255, 30, 56, 0.9); }
+    }
+
+    .ops-status-text {
+      color: #e2e8f0 !important;
+      font-weight: 700 !important;
+      flex: 1 !important;
+      text-align: center !important;
+      letter-spacing: 0.5px !important;
+      padding: 0 8px !important;
+      font-size: 9px !important;
+    }
+
+    .ops-risk-badge {
+      font-weight: 700 !important;
+      padding: 3px 8px !important;
+      border-radius: 2px !important;
+      background: rgba(0, 255, 102, 0.15) !important;
+      color: #00ff66 !important;
+      border: 1px solid rgba(0, 255, 102, 0.35) !important;
+      font-size: 8.5px !important;
+      white-space: nowrap !important;
+    }
+
+    .ops-risk-badge.risk-elevated {
+      background: rgba(255, 170, 0, 0.18) !important;
+      color: #ffaa00 !important;
+      border-color: rgba(255, 170, 0, 0.45) !important;
+    }
+
+    .ops-risk-badge.risk-critical {
+      background: rgba(255, 30, 56, 0.2) !important;
+      color: #ff3b30 !important;
+      border-color: rgba(255, 30, 56, 0.5) !important;
+    }
+
+    .ops-action-row {
+      display: flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      flex-wrap: nowrap !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .ops-row-secondary {
+      border-top: 1px solid rgba(100, 120, 140, 0.2) !important;
+      padding-top: 4px !important;
+    }
+
+    /* TACTICAL CYBER BUTTONS */
+    .btn-ops {
+      font-family: 'Rajdhani', sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      padding: 5px 8px !important;
+      border-radius: 3px !important;
+      cursor: pointer !important;
+      transition: all 0.18s ease !important;
+      white-space: nowrap !important;
+      flex: 1 !important;
+      text-align: center !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+      outline: none !important;
+      box-sizing: border-box !important;
+      user-select: none !important;
+    }
+
+    .btn-ops-track {
+      background: rgba(0, 240, 255, 0.12) !important;
+      border: 1px solid rgba(0, 240, 255, 0.45) !important;
+      color: #00f0ff !important;
+    }
+    .btn-ops-track:hover {
+      background: rgba(0, 240, 255, 0.28) !important;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4) !important;
+    }
+    .btn-ops-track.active {
+      background: rgba(0, 240, 255, 0.35) !important;
+      border-color: #00f0ff !important;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.5), inset 0 0 8px rgba(0, 240, 255, 0.4) !important;
+    }
+
+    .btn-ops-alert {
+      background: rgba(255, 170, 0, 0.12) !important;
+      border: 1px solid rgba(255, 170, 0, 0.45) !important;
+      color: #ffaa00 !important;
+    }
+    .btn-ops-alert:hover {
+      background: rgba(255, 170, 0, 0.28) !important;
+      box-shadow: 0 0 10px rgba(255, 170, 0, 0.4) !important;
+    }
+
+    .btn-ops-log {
+      background: rgba(100, 130, 170, 0.12) !important;
+      border: 1px solid rgba(100, 130, 170, 0.45) !important;
+      color: #94a3b8 !important;
+    }
+    .btn-ops-log:hover {
+      background: rgba(100, 130, 170, 0.28) !important;
+      color: #e2e8f0 !important;
+    }
+
+    .btn-ops-simulate {
+      background: rgba(168, 85, 247, 0.12) !important;
+      border: 1px solid rgba(168, 85, 247, 0.45) !important;
+      color: #c084fc !important;
+    }
+    .btn-ops-simulate:hover {
+      background: rgba(168, 85, 247, 0.28) !important;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.4) !important;
+    }
+    .btn-ops-simulate.active {
+      background: rgba(168, 85, 247, 0.35) !important;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.6) !important;
+      animation: opsSimPulse 1.2s infinite alternate !important;
+    }
+
+    @keyframes opsSimPulse {
+      from { border-color: rgba(168, 85, 247, 0.5); }
+      to { border-color: #c084fc; box-shadow: 0 0 16px rgba(168, 85, 247, 0.8); }
+    }
+
+    .btn-ops-hold {
+      background: rgba(255, 200, 0, 0.12) !important;
+      border: 1px solid rgba(255, 200, 0, 0.4) !important;
+      color: #fcd34d !important;
+    }
+    .btn-ops-hold:hover {
+      background: rgba(255, 200, 0, 0.28) !important;
+    }
+    .btn-ops-hold.active {
+      background: rgba(255, 200, 0, 0.35) !important;
+      border-color: #fcd34d !important;
+      box-shadow: 0 0 10px rgba(255, 200, 0, 0.5) !important;
+    }
+
+    .btn-ops-release {
+      background: rgba(0, 255, 102, 0.12) !important;
+      border: 1px solid rgba(0, 255, 102, 0.4) !important;
+      color: #4ade80 !important;
+    }
+    .btn-ops-release:hover {
+      background: rgba(0, 255, 102, 0.28) !important;
+    }
+
+    .btn-ops-camera {
+      background: rgba(56, 189, 248, 0.12) !important;
+      border: 1px solid rgba(56, 189, 248, 0.4) !important;
+      color: #38bdf8 !important;
+    }
+    .btn-ops-camera:hover {
+      background: rgba(56, 189, 248, 0.28) !important;
+    }
+
+    .btn-ops-trajectory {
+      background: rgba(0, 240, 255, 0.12) !important;
+      border: 1px solid rgba(0, 240, 255, 0.4) !important;
+      color: #00f0ff !important;
+    }
+    .btn-ops-trajectory:hover {
+      background: rgba(0, 240, 255, 0.28) !important;
+    }
+    .btn-ops-trajectory.active {
+      background: rgba(0, 240, 255, 0.3) !important;
+      border-color: #00f0ff !important;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4) !important;
+    }
+
+    /* TARGET CARD */
+    .ops-target-card {
+      padding: 5px 10px 7px !important;
+      background: rgba(6, 12, 20, 0.98) !important;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2) !important;
+      box-sizing: border-box !important;
+      transition: all 0.25s ease !important;
+    }
+
+    .ops-card-header {
+      margin-bottom: 4px !important;
+    }
+
+    .ops-card-title {
+      font-family: 'Share Tech Mono', monospace !important;
+      font-size: 9px !important;
+      font-weight: 800 !important;
+      color: #64748b !important;
+      letter-spacing: 0.5px !important;
+    }
+
+    .ops-card-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 4px !important;
+    }
+
+    .ops-kv {
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 3px 6px !important;
+      background: rgba(0, 10, 20, 0.7) !important;
+      border: 1px solid rgba(0, 240, 255, 0.12) !important;
+      border-radius: 2px !important;
+      box-sizing: border-box !important;
+    }
+
+    .ops-k {
+      font-family: 'Share Tech Mono', monospace !important;
+      font-size: 7.5px !important;
+      font-weight: 700 !important;
+      color: #64748b !important;
+      letter-spacing: 0.5px !important;
+      margin-bottom: 1px !important;
+    }
+
+    .ops-v {
+      font-family: 'Share Tech Mono', monospace !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #00f0ff !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+  </style>
 </head>
 <body class="cinematic-command-center">
 
@@ -19,7 +298,6 @@
       <div class="iaf-emblem-wrap">
         <img src="vayu_netra_logo.jpg" alt="VayuNetra Logo" width="32" height="32" class="vayu-netra-logo-img" style="width:32px !important; height:32px !important; max-width:32px !important; max-height:32px !important; border-radius:50%; object-fit:cover; flex-shrink:0; border:1.5px solid #00f0ff; box-shadow:0 0 8px rgba(0,240,255,0.4); display:inline-block;">
         <div class="title-group">
-          <div class="command-motto">INDIAN AIR FORCE • STRATEGIC AIRSPACE DEFENCE</div>
           <h1 class="main-screen-title"><span class="brand-hi">वायु</span><span class="brand-en">Netra</span> <span class="badge-sector">v3.0 AI-C2</span></h1>
         </div>
       </div>
@@ -76,7 +354,7 @@
         </div>
         <div class="panel-pills">
           <span class="pill-mil pill-pulse">● 30 RPM SWEEP</span>
-          <span class="pill-mil">200m ENVELOPE</span>
+          <span class="pill-mil">200cm ENVELOPE</span>
         </div>
       </div>
 
@@ -88,8 +366,8 @@
           <div class="bearing-mark mark-s">180° (S)</div>
           <div class="bearing-mark mark-w">270° (W)</div>
           <div class="sam-legend-badge">
-            <span class="dot-sam-akash"></span> WARNING ZONE (120m) &nbsp;|&nbsp;
-            <span class="dot-sam-dew"></span> CRITICAL ZONE (50m)
+            <span class="dot-sam-akash"></span> WARNING ZONE (120cm) &nbsp;|&nbsp;
+            <span class="dot-sam-dew"></span> CRITICAL ZONE (50cm)
           </div>
         </div>
       </div>
@@ -102,11 +380,11 @@
         </div>
         <div class="strip-cell">
           <span class="sc-label">PRIMARY RANGE</span>
-          <span class="sc-val text-red" id="closest-range-val">--- m</span>
+          <span class="sc-val text-red" id="closest-range-val">--- cm</span>
         </div>
         <div class="strip-cell">
           <span class="sc-label">CLOSURE VELOCITY</span>
-          <span class="sc-val text-amber" id="max-closure-val">--- m/s</span>
+          <span class="sc-val text-amber" id="max-closure-val">--- cm/s</span>
         </div>
         <div class="strip-cell">
           <span class="sc-label">TIME TO IMPACT</span>
@@ -164,36 +442,140 @@
           <div class="laser-designator-box">
             <div class="designator-title" id="designation-title">⚡ TARGET STATUS: SCANNING AIRSPACE</div>
             <div class="designator-desc" id="designation-text">
-              NO ACTIVE HOSTILE IN PERIMETER • CONTINUOUS SENSOR MONITORING ACTIVE
+              NO ACTIVE TARGET IN PERIMETER • CONTINUOUS SENSOR MONITORING ACTIVE
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Action Bar & RF Jamming Control Panel -->
+      <!-- 3D AI TRAJECTORY PREDICTION (SQUARE FORMAT BELOW CAMERA VIEW) -->
+      <div class="center-trajectory-card">
+        <div class="center-trajectory-header">
+          <div class="traj-title-group">
+            <span class="panel-icon">📐</span>
+            <h3>TRAJECTORY PREDICTION (AI KALMAN + CONSTANT-VELOCITY 2s/3s FORECAST)</h3>
+          </div>
+          <div class="traj-view-tabs">
+            <button class="traj-tab active" id="center-tab-3d" onclick="window.centerTrajViz && window.centerTrajViz.setView('3d')">3D ISOMETRIC</button>
+            <button class="traj-tab" id="center-tab-lateral" onclick="window.centerTrajViz && window.centerTrajViz.setView('lateral')">LATERAL (X-Z)</button>
+            <button class="traj-tab" id="center-tab-vertical" onclick="window.centerTrajViz && window.centerTrajViz.setView('vertical')">VERTICAL (Y-Z)</button>
+          </div>
+        </div>
+
+        <!-- OPERATOR RESPONSE PANEL (Decision-Support Only, No Physical Action) -->
+        <div class="operator-response-toolbar">
+          <!-- Row 1: Status Banner -->
+          <div class="ops-status-banner" id="ops-status-banner">
+            <span class="ops-status-badge" id="ops-status-badge">👁 MONITORING</span>
+            <span class="ops-status-text" id="ops-status-text">TRACKING ACTIVE • HUMAN CONFIRMATION REQUIRED</span>
+            <span class="ops-risk-badge" id="ops-risk-badge">RISK ASSESSMENT: MONITOR</span>
+          </div>
+
+          <!-- Row 2: Action Buttons (UI-only, non-physical) -->
+          <div class="ops-action-row">
+            <button type="button" class="btn-ops btn-ops-track" id="btn-track-target"
+              onclick="opsTrackTarget()" title="Lock UI display onto highest-priority track">
+              🎯 TRACK TARGET
+            </button>
+            <button type="button" class="btn-ops btn-ops-alert" id="btn-alert-operator"
+              onclick="opsAlertOperator()" title="Sound audible alert and highlight event log">
+              🔔 ALERT OPERATOR
+            </button>
+            <button type="button" class="btn-ops btn-ops-log" id="btn-log-event"
+              onclick="opsLogEvent()" title="Snapshot current target state to event log">
+              📋 LOG EVENT
+            </button>
+            <button type="button" class="btn-ops btn-ops-simulate" id="btn-simulate-response"
+              onclick="opsSimulateResponse()" title="Display simulated response state (NO PHYSICAL ACTION)">
+              ⚡ SIMULATE RESPONSE
+            </button>
+          </div>
+
+          <!-- Row 3: Track Control & View Buttons -->
+          <div class="ops-action-row ops-row-secondary">
+            <button type="button" class="btn-ops btn-ops-hold" id="btn-hold-track"
+              onclick="opsHoldTrack()" title="Freeze current track selection">
+              ⏸ HOLD TRACK
+            </button>
+            <button type="button" class="btn-ops btn-ops-release" id="btn-release-track"
+              onclick="opsReleaseTrack()" title="Resume auto-priority track selection">
+              ▶ RELEASE TRACK
+            </button>
+            <button type="button" class="btn-ops btn-ops-camera" id="btn-camera-center"
+              onclick="opsCameraCenter()" title="Send gimbal recenter command to origin">
+              📷 CAMERA CENTER
+            </button>
+            <button type="button" class="btn-ops btn-ops-trajectory active" id="btn-show-trajectory"
+              onclick="opsShowTrajectory()" title="Toggle 2s/3s trajectory forecast overlay">
+              📐 SHOW TRAJECTORY
+            </button>
+          </div>
+        </div>
+
+        <!-- Target Status Card (Compact, below toolbar) -->
+        <div class="ops-target-card" id="ops-target-card">
+          <div class="ops-card-header">
+            <span class="ops-card-title" id="ops-card-title">TARGET CARD — AWAITING TRACK</span>
+          </div>
+          <div class="ops-card-grid" id="ops-card-grid">
+            <div class="ops-kv"><span class="ops-k">CLASS</span><span class="ops-v" id="tc-class">—</span></div>
+            <div class="ops-kv"><span class="ops-k">TRACK</span><span class="ops-v" id="tc-track">—</span></div>
+            <div class="ops-kv"><span class="ops-k">AI CONF</span><span class="ops-v" id="tc-conf">—</span></div>
+            <div class="ops-kv"><span class="ops-k">RADAR</span><span class="ops-v" id="tc-radar">—</span></div>
+            <div class="ops-kv"><span class="ops-k">SPEED</span><span class="ops-v" id="tc-speed">—</span></div>
+            <div class="ops-kv"><span class="ops-k">DISTANCE</span><span class="ops-v" id="tc-distance">—</span></div>
+            <div class="ops-kv"><span class="ops-k">ALTITUDE</span><span class="ops-v" id="tc-altitude">—</span></div>
+            <div class="ops-kv"><span class="ops-k">RISK</span><span class="ops-v" id="tc-risk">—</span></div>
+          </div>
+        </div>
+
+        <div class="center-trajectory-body">
+          <!-- Square Canvas Container (Strict 1:1 Aspect Ratio) -->
+          <div class="center-traj-canvas-square-wrap">
+            <canvas id="centerTrajectoryCanvas" width="340" height="340"></canvas>
+            <div class="traj-legend">
+              <span class="legend-item"><span class="legend-dot leg-actual"></span> Active Drone</span>
+              <span class="legend-item"><span class="legend-dot leg-endpoint"></span> +2.5s Future Drone</span>
+              <span class="legend-item"><span class="legend-dot leg-predicted"></span> Forecast Path</span>
+              <span class="legend-item"><span class="legend-dot leg-perimeter"></span> 50m Ring</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Kinematics & Prediction Telemetry -->
+          <div class="center-traj-telemetry-side">
+            <div class="c-telemetry-cell">
+              <span class="c-cell-label">ACTIVE CONTACTS</span>
+              <span class="c-cell-value text-cyan" id="center-traj-stat-targets">0</span>
+            </div>
+            <div class="c-telemetry-cell">
+              <span class="c-cell-label">CLOSURE VELOCITY</span>
+              <span class="c-cell-value text-amber" id="center-traj-stat-speed">0.0 m/s</span>
+            </div>
+            <div class="c-telemetry-cell">
+              <span class="c-cell-label">AI CONFIDENCE</span>
+              <span class="c-cell-value text-green" id="center-traj-stat-conf">92%</span>
+            </div>
+            <div class="c-telemetry-cell">
+              <span class="c-cell-label">PREDICTION HORIZON</span>
+              <span class="c-cell-value text-cyan">2.0s / 3.0s (CV-EKF)</span>
+            </div>
+            <div class="c-telemetry-cell cell-wide">
+              <span class="c-cell-label">PROJECTED FUTURE COORDINATES (+2s / +3s)</span>
+              <span class="c-cell-value text-cyan" id="center-traj-stat-pred">AWAITING TRACK</span>
+            </div>
+            <div class="c-telemetry-cell cell-wide">
+              <span class="c-cell-label">BASE DEFENCE PERIMETER (50m ENVELOPE)</span>
+              <span class="c-cell-value text-green" id="center-traj-stat-zone">SECURE (ALL SECTORS)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Bar & Directive Strip -->
       <div class="clean-action-bar">
         <div class="directive-strip">
           <span>OPERATIONAL DIRECTIVE:</span>
           <strong class="text-green" id="directive-text">DEFENSIVE MONITORING ACTIVE — ALL PERIMETER SECTORS SECURE</strong>
-        </div>
-
-        <!-- Dedicated RF Jamming Control Options -->
-        <div class="rf-jamming-control-panel">
-          <div class="rf-panel-header">
-            <span class="rf-panel-title">⚡ ELECTRONIC WARFARE &amp; RF JAMMING COUNTERMEASURES</span>
-            <span class="rf-status-badge tag-secure" id="rf-control-status-badge">RF LINK SECURE (CH-6)</span>
-          </div>
-          <div class="rf-action-btn-group">
-            <button class="btn-rf-action btn-softkill" onclick="executeSoftKill()">
-              ⚡ ENGAGE RF JAMMING (SOFT-KILL BEAM)
-            </button>
-            <button class="btn-rf-action btn-jam-sim" id="btn-jam-sim-cam" onclick="toggleHostileJamming()">
-              ⚠️ SIMULATE HOSTILE JAMMING
-            </button>
-            <button class="btn-rf-action btn-eccm-hop" id="btn-eccm-hop-cam" onclick="executeEccmFrequencyHop()">
-              🔄 ENGAGE ECCM FREQUENCY HOPPING
-            </button>
-          </div>
         </div>
       </div>
     </section>
@@ -252,15 +634,15 @@
           <div class="fusion-metric-grid">
             <div class="f-metric-cell">
               <span class="f-label">CAMERA SPEED</span>
-              <span class="f-val text-cyan" id="metric-cam-spd">0.0 m/s</span>
+              <span class="f-val text-cyan" id="metric-cam-spd">0.0 cm/s</span>
             </div>
             <div class="f-metric-cell">
               <span class="f-label">RADAR DOPPLER</span>
-              <span class="f-val text-amber" id="metric-rad-spd">--- m/s</span>
+              <span class="f-val text-amber" id="metric-rad-spd">--- cm/s</span>
             </div>
             <div class="f-metric-cell">
               <span class="f-label">FUSED VELOCITY</span>
-              <span class="f-val text-green" id="metric-fused-spd">0.0 m/s</span>
+              <span class="f-val text-green" id="metric-fused-spd">0.0 cm/s</span>
             </div>
             <div class="f-metric-cell">
               <span class="f-label">KALMAN STATE</span>
@@ -268,6 +650,7 @@
             </div>
           </div>
         </div>
+
 
         <!-- TRAJECTORY PREDICTION VISUALIZATION -->
         <div class="trajectory-viz-box">
@@ -278,18 +661,18 @@
             <button class="traj-tab" id="tab-vertical" onclick="window.trajViz && window.trajViz.setView('vertical')">VERTICAL (Y-Z)</button>
           </div>
           <div class="traj-canvas-wrap">
-            <canvas id="trajectoryCanvas" width="480" height="260"></canvas>
+            <canvas id="trajectoryCanvas" width="480" height="340"></canvas>
             <div class="traj-legend">
               <span class="legend-item"><span class="legend-dot leg-actual"></span> Historical Track (Solid)</span>
               <span class="legend-item"><span class="legend-dot leg-predicted"></span> Predicted Path (0–3s)</span>
               <span class="legend-item"><span class="legend-dot leg-endpoint"></span> +3.0s Projected Endpoint</span>
-              <span class="legend-item"><span class="legend-dot leg-perimeter"></span> 50m Defence Perimeter</span>
+              <span class="legend-item"><span class="legend-dot leg-perimeter"></span> 50cm Defence Perimeter</span>
             </div>
           </div>
           <div class="traj-stats-grid">
             <span class="traj-stat" id="traj-stat-points">TARGETS: <strong>0</strong></span>
             <span class="traj-stat" id="traj-stat-horizon">HORIZON: <strong>3.0s (CV-EKF)</strong></span>
-            <span class="traj-stat" id="traj-stat-speed">SPD: <strong>-- m/s</strong></span>
+            <span class="traj-stat" id="traj-stat-speed">SPD: <strong>-- cm/s</strong></span>
             <span class="traj-stat" id="traj-stat-confidence">CONF: <strong>--%</strong></span>
             <span class="traj-stat traj-stat-wide" id="traj-stat-pred3s">+3s: <strong>AWAITING TRACK</strong></span>
             <span class="traj-stat traj-stat-wide" id="traj-stat-zone">PERIMETER: <strong style="color:#00ff66;">SECURE</strong></span>
@@ -330,10 +713,11 @@
             📷 WEBCAM (INT)
           </button>
           <span class="pill-mil pill-active" id="current-stream-source-badge">FEED: USB CAMERA</span>
-          <button class="btn-source-ctrl" id="btn-conf-bottom" style="background: #1e293b; border: 1px solid #f59e0b88; color: #f59e0b; font-size: 11px; padding: 4px 8px;" onclick="cycleAiSensitivity()" title="Cycle AI Detection Sensitivity Threshold">🎯 SENSITIVITY: 0.42</button>
-          <button class="btn-source-ctrl" id="btn-mode-bottom" style="background: #1e293b; border: 1px solid #10b98188; color: #34d399; font-size: 11px; padding: 4px 8px;" onclick="toggleGimbalMode()" title="Toggle Camera-Mounted vs Fixed Turret">🔭 AUTO-LOCK (CAM)</button>
+          <button class="btn-source-ctrl" id="btn-conf-bottom" style="background: #1e293b; border: 1px solid #f59e0b88; color: #f59e0b; font-size: 11px; padding: 4px 8px;" onclick="cycleAiSensitivity()" title="Cycle AI Detection Sensitivity Threshold">🎯 SENSITIVITY: 0.30</button>
+          <button class="btn-source-ctrl" id="btn-mode-bottom" style="background: #1e293b; border: 1px solid #10b98188; color: #34d399; font-size: 11px; padding: 4px 8px;" onclick="toggleGimbalMode()" title="Toggle Camera-Mounted vs Fixed Turret">🔭 CAMERA TRACK</button>
           <button class="btn-source-ctrl" style="background: #1e293b; border: 1px solid #38bdf888; color: #38bdf8; font-size: 11px; padding: 4px 8px;" onclick="recenterServo()">🎯 RECENTER (90°)</button>
-          <button class="btn-source-ctrl" id="btn-invert-bottom" style="background: #1e293b; border: 1px solid #a855f788; color: #c084fc; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertServo()">🔄 INVERT (NORMAL)</button>
+          <button class="btn-source-ctrl" id="btn-invert-bottom" style="background: #1e293b; border: 1px solid #a855f788; color: #c084fc; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertServo()">🔄 PAN (NORMAL)</button>
+          <button class="btn-source-ctrl" id="btn-invert-tilt-bottom" style="background: #1e293b; border: 1px solid #ec489988; color: #f472b6; font-size: 11px; padding: 4px 8px;" onclick="toggleInvertTiltServo()" title="Toggle Vertical Tilt Direction">↕️ TILT (NORMAL)</button>
           <span class="pill-mil" id="servo-status-badge" style="background: #1a3a1a; color: #00ff88; border: 1px solid #00ff8855; margin-left: 4px;">🎯 SERVO: IDLE 90.0°</span>
         </div>
       </div>
@@ -374,9 +758,9 @@
   </main>
 
   <!-- JAVASCRIPT MODULES -->
-  <script src="js/radar_scope.js?v=3.3"></script>
-  <script src="js/optical_hud.js?v=3.3"></script>
-  <script src="js/trajectory_viz.js?v=3.3"></script>
-  <script src="app.js?v=3.3"></script>
+  <script src="js/radar_scope.js?v=4.0"></script>
+  <script src="js/optical_hud.js?v=4.0"></script>
+  <script src="js/trajectory_viz.js?v=4.0"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>
